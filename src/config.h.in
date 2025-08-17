@@ -12,4 +12,10 @@
 
 #define PROGRAMNAME "lfs"
 
+#cmakedefine HAVE_UNISTD_H
+#cmakedefine HAVE_GETOPT_H
+
+#cmakedefine HAVE_GETOPT_LONG
+
+
 #endif /* LITTLEFS_TOY_CONFIG_H */

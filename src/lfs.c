@@ -19,9 +19,18 @@
    along with LittleFS-Toy. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/errno.h>
+#if defined(HAVE_GETOPT_H) && defined(HAVE_GETOPT_LONG)
 #include <getopt.h>
+#else
+#include "getopt/getopt.h"
+#endif
 #include <lfs.h>
 
 #include "littlefs-toy.h"
@@ -46,14 +55,138 @@ const struct option long_options[] = {
 
 const char *copyright = "Copyright (C) 2025 Timo Kokkonen.";
 
+struct lfs_context {
+	struct lfs_config cfg;
+	int fd;
+	void *base;
+	size_t offset;
+};
+
+
+static int block_read(const struct lfs_config *c, lfs_block_t block,
+		lfs_off_t off, void *buffer, lfs_size_t size)
+{
+	return LFS_ERR_OK;
+}
+
+static int block_prog(const struct lfs_config *c, lfs_block_t block,
+		lfs_off_t off, const void *buffer, lfs_size_t size)
+{
+	return LFS_ERR_OK;
+}
+
+static int block_erase(const struct lfs_config *c, lfs_block_t block)
+{
+	return LFS_ERR_OK;
+}
+
+
+static int block_sync(const struct lfs_config *c)
+{
+	struct lfs_context *ctx = (struct lfs_context*)c->context;
+
+	if (ctx->fd >= 0) {
+		if (fsync(ctx->fd)) {
+			warn("fsync() failed: %d", errno);
+		}
+	}
+
+	return LFS_ERR_OK;
+}
+
+static void init_lfs_config(struct lfs_config *cfg, size_t blocksize, size_t blocks, void *ctx)
+{
+	memset(cfg, 0, sizeof(struct lfs_config));
+
+	cfg->context = ctx;
+
+	/* I/O callbacks */
+	cfg->read = block_read;
+	cfg->prog = block_prog;
+	cfg->erase = block_erase;
+	cfg->sync = block_sync;
+
+	/* LFS settings */
+	cfg->read_size = 1;
+	cfg->prog_size = blocksize;
+	cfg->block_size = blocksize;
+	cfg->block_count = blocks;
+}
+
+struct lfs_context* lfs_init_mem(void *base, size_t size, size_t blocksize)
+{
+	if (!base || size < 1 || blocksize < 1)
+		return NULL;
+
+	if (size % blocksize != 0) {
+		warn("image size not multiple of blocksize");
+		return NULL;
+	}
+	if (size < blocksize) {
+		warn("image smaller than blocksize");
+		return NULL;
+	}
+
+	struct lfs_context *ctx = calloc(1, sizeof(struct lfs_context));
+	if (!ctx) {
+		warn("out of memory");
+		return NULL;
+	}
+
+	ctx->fd = -1;
+	ctx->base = base;
+	ctx->offset = 0;
+
+	init_lfs_config(&ctx->cfg, blocksize, size / blocksize, ctx);
+
+	return ctx;
+}
+
+
+struct lfs_context* lfs_init_file(int fd, size_t offset, size_t size, size_t blocksize)
+{
+	if (fd < 0 || size < 1 || blocksize < 1)
+		return NULL;
+
+	if (offset % blocksize != 0) {
+		warn("offset not multiple of blocksize");
+		return NULL;
+	}
+	if (size % blocksize != 0) {
+		warn("image size not multiple of blocksize");
+		return NULL;
+	}
+	if (size < blocksize) {
+		warn("image smaller than blocksize");
+		return NULL;
+	}
+
+	struct lfs_context *ctx = calloc(1, sizeof(struct lfs_context));
+	if (!ctx) {
+		warn("out of memory");
+		return NULL;
+	}
+
+	ctx->fd = fd;
+	ctx->base = NULL;
+	ctx->offset = offset;
+
+	init_lfs_config(&ctx->cfg, blocksize, size / blocksize, ctx);
+
+	return ctx;
+}
+
+
+
+
 
 void print_version()
 {
 #ifdef  __DATE__
-	printf("lfs v%s%s  %s (%s)\n", LITTLEFS_TOY_VERSION,
+	printf("%s v%s%s  %s (%s)\n", PROGRAMNAME, LITTLEFS_TOY_VERSION,
 		BUILD_TAG, HOST_TYPE, __DATE__);
 #else
-	printf("lfs v%s%s  %s\n", LITTLEFS_TOY_VERSION,
+	printf("%d v%s%s  %s\n", PROGRAMNAME, LITTLEFS_TOY_VERSION,
 		BUILD_TAG, HOST_TYPE);
 #endif
 	printf("%s\n\n", copyright);
@@ -65,15 +198,24 @@ void print_version()
 
 void print_usage()
 {
-	fprintf(stderr, "lfs v" LITTLEFS_TOY_VERSION
-		BUILD_TAG "  %s\n\n", copyright);
+	fprintf(stderr, "%s v%s%s %s\n\n", PROGRAMNAME,
+		LITTLEFS_TOY_VERSION, BUILD_TAG, copyright);
 
-	fprintf(stderr, "Usage: lfs [OPTIONS] <operation> <parameter> ...\n\n"
-		" -h, --help    display usage information and exit\n"
-		" -v, --verbose enable verbose mode\n"
-		" -V, --version display program version\n"
+	fprintf(stderr, "Usage: lfs {command} [options] [(file) | (pattern) ...]\n\n"
+		" Commands:\n"
+		"  -c, --create    Create (format) lfs image and add files\n"
+		"  -r, --append    Append (add) files to existing lfs image\n"
+		"  -d, --delete    Remove files from lfs image\n"
+		"  -t, --list      List contents of lfs image\n\n"
+		" Options:\n"
+		" -f <imagefile>, --file=<imagefile>       lfs image file\n"
+		" -b <blocksize>, --block-size=<blocksize> lfs block size\n"
+		" -h, --help                               display usage information and exit\n"
+		" -v, --verbose                            enable verbose mode\n"
+		" -V, --version                            display program version\n"
 		"\n\n");
 }
+
 
 int parse_arguments(int argc, char **argv)
 {

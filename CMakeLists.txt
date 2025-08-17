@@ -1,7 +1,7 @@
 # CMakeLists.txt for LittleFS-Toy
 #
 
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.20)
 
 
 project(littlefs-toy
@@ -18,6 +18,13 @@ set(BUILD_TAG beta CACHE STRING "Build Tag")
 
 
 include(GNUInstallDirs)
+include(CheckIncludeFile)
+include(CheckFunctionExists)
+
+check_include_file(unistd.h HAVE_UNISTD_H)
+check_include_file(getopt.h HAVE_GETOPT_H)
+
+check_function_exists(getopt_long HAVE_GETOPT_LONG)
 
 
 # LittleFS
@@ -37,10 +44,19 @@ add_executable(lfs
   src/lfs.c
   src/util.c
 )
-
 target_include_directories(lfs PRIVATE src)
-
 configure_file(src/config.h.in config.h)
+
+if (HAVE_GETOPT_LONG)
+  message("Using getopt_long from the system.")
+else()
+  message("Using included getopt_long.")
+  target_sources(lfs PRIVATE
+    src/getopt/getopt.c
+    src/getopt/getopt1.c
+  )
+endif()
+
 
 target_link_libraries(lfs PRIVATE
   littlefs
@@ -50,7 +66,14 @@ target_link_libraries(lfs PRIVATE
 target_compile_options(lfs PRIVATE
   -Wall
   -fstack-protector-all
+  -DHAVE_CONFIG_H
 )
+
+target_compile_definitions(lfs PRIVATE
+  LFS_THREADSAFE=1
+  LFS_NO_DEBUG=0
+)
+
 
 install(TARGETS lfs)
 install(FILES lfs.1 TYPE MAN)

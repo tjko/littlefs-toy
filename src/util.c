@@ -24,6 +24,9 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -31,10 +34,10 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
 
 #include "littlefs-toy.h"
+
 
 FILE* create_file(const char *name)
 {
@@ -168,8 +171,6 @@ int copy_file(const char *srcfile, const char *dstfile)
 }
 
 
-
-
 void fatal(const char *format, ...)
 {
 	va_list args;
@@ -181,7 +182,7 @@ void fatal(const char *format, ...)
 	fprintf(stderr,"\n");
 	fflush(stderr);
 
-	exit(3);
+	exit(1);
 }
 
 
