@@ -12,6 +12,10 @@ project(littlefs-toy
 	)
 
 set(CMAKE_C_STANDARD 11)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
+set(BUILD_TAG beta CACHE STRING "Build Tag")
+
 
 include(GNUInstallDirs)
 
@@ -31,14 +35,22 @@ target_sources(littlefs INTERFACE
 
 add_executable(lfs
   src/lfs.c
+  src/util.c
 )
 
 target_include_directories(lfs PRIVATE src)
 
+configure_file(src/config.h.in config.h)
+
 target_link_libraries(lfs PRIVATE
   littlefs
 )
-  
+
+
+target_compile_options(lfs PRIVATE
+  -Wall
+  -fstack-protector-all
+)
 
 install(TARGETS lfs)
 install(FILES lfs.1 TYPE MAN)

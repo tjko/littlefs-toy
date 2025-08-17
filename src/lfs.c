@@ -24,12 +24,20 @@
 #include <getopt.h>
 #include <lfs.h>
 
-int verbose_mode = 0;
+#include "littlefs-toy.h"
 
-#define VERSION "0.0.1"
-#define HOST_TYPE "Unknown"
+
+
+int command = LFS_NONE;
+int verbose_mode = 0;
+char *image_file = NULL;
 
 const struct option long_options[] = {
+	{ "create",             0, &command,            LFS_CREATE },
+	{ "update",             0, &command,            LFS_UPDATE },
+	{ "delete",             0, &command,            LFS_DELETE },
+	{ "list",               0, &command,            LFS_LIST },
+	{ "file",               1, NULL,                'f' },
 	{ "help",		0, NULL,		'h' },
 	{ "verbose",		0, NULL,		'v' },
 	{ "version",		0, NULL,		'V' },
@@ -42,9 +50,11 @@ const char *copyright = "Copyright (C) 2025 Timo Kokkonen.";
 void print_version()
 {
 #ifdef  __DATE__
-	printf("lfs v%s  %s (%s)\n", VERSION, HOST_TYPE, __DATE__);
+	printf("lfs v%s%s  %s (%s)\n", LITTLEFS_TOY_VERSION,
+		BUILD_TAG, HOST_TYPE, __DATE__);
 #else
-	printf("lfs v%s  %s\n", VERSION, HOST_TYPE);
+	printf("lfs v%s%s  %s\n", LITTLEFS_TOY_VERSION,
+		BUILD_TAG, HOST_TYPE);
 #endif
 	printf("%s\n\n", copyright);
 	printf("This program comes with ABSOLUTELY NO WARRANTY. This is free software,\n"
@@ -55,7 +65,8 @@ void print_version()
 
 void print_usage()
 {
-	fprintf(stderr, "lfs v" VERSION "  %s\n\n", copyright);
+	fprintf(stderr, "lfs v" LITTLEFS_TOY_VERSION
+		BUILD_TAG "  %s\n\n", copyright);
 
 	fprintf(stderr, "Usage: lfs [OPTIONS] <operation> <parameter> ...\n\n"
 		" -h, --help    display usage information and exit\n"
@@ -71,11 +82,31 @@ int parse_arguments(int argc, char **argv)
 
 	while (1) {
 		opt_index = 0;
-		if ((c = getopt_long(argc, argv, "hvV",
+		if ((c = getopt_long(argc, argv, "crdtf:hvV",
 						long_options, &opt_index)) == -1)
 			break;
 
 		switch (c) {
+
+		case 'c':
+			command = LFS_CREATE;
+			break;
+
+		case 'r':
+			command = LFS_UPDATE;
+			break;
+
+		case 'd':
+			command = LFS_DELETE;
+			break;
+
+		case 't':
+			command = LFS_LIST;
+			break;
+
+		case 'f':
+			image_file = strdup(optarg);
+			break;
 
 		case 'h':
 			print_usage();
@@ -94,6 +125,12 @@ int parse_arguments(int argc, char **argv)
 		}
 	}
 
+
+	if (command == LFS_NONE) {
+		fprintf(stderr, "no command specified\n");
+		print_usage();
+		exit(1);
+	}
 	return opt_index;
 }
 
