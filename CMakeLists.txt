@@ -15,7 +15,12 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(BUILD_TAG beta CACHE STRING "Build Tag")
+#set(CMAKE_BUILD_TYPE Debug)
 
+message("==========================================================")
+message("        BUILD_TAG: ${BUILD_TAG}")
+message(" CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("==========================================================")
 
 include(GNUInstallDirs)
 include(CheckIncludeFile)
@@ -36,7 +41,7 @@ target_include_directories(littlefs INTERFACE
 target_sources(littlefs INTERFACE
   libs/littlefs/lfs.c
   libs/littlefs/lfs_util.c
-)	
+)
 
 
 
@@ -67,10 +72,11 @@ target_compile_options(lfs PRIVATE
   -Wall
   -fstack-protector-all
   -DHAVE_CONFIG_H
+  -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=
 )
 
 target_compile_definitions(lfs PRIVATE
-  LFS_THREADSAFE=1
+#  LFS_THREADSAFE=1
   LFS_NO_DEBUG=0
 )
 

@@ -38,42 +38,68 @@
 
 #include "littlefs-toy.h"
 
+#define BUF_SIZE (64 * 1024)
 
-FILE* create_file(const char *name)
+int create_file(const char *name, off_t size)
 {
-        FILE *f;
         int fd;
 
         if (!name)
-                return NULL;
+                return -1;
 
 #ifdef WIN32
-        fd = open(name, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, _S_IREAD | _S_IWRITE);
+        fd = open(name, O_RDWR | O_CREAT | O_TRUNC | O_BINARY, _S_IREAD | _S_IWRITE);
 #else
-        fd = open(name, O_WRONLY | O_CREAT | O_TRUNC, S_IWUSR | S_IRUSR);
+        fd = open(name, O_RDWR | O_CREAT | O_TRUNC, S_IWUSR | S_IRUSR);
 #endif
-        if (fd < 0)
-                return NULL;
-        if (!(f = fdopen(fd, "wb"))) {
-                close(fd);
-                return NULL;
-        }
 
-        return f;
+	if (size > 0) {
+		void *buf = calloc(1, BUF_SIZE);
+		if (!buf)
+			fatal("out of memory");
+		off_t written = 0;
+
+		while (written < size) {
+			size_t len = ((size - written) > BUF_SIZE ? BUF_SIZE : (size - written));
+			if (write(fd, buf, len) < len)
+				fatal("failed to write to file: %s", name);
+			written += len;
+		}
+		lseek(fd, SEEK_SET, 0);
+	}
+
+        return fd;
+}
+
+
+int open_file(const char *name, bool readonly)
+{
+	int fd;
+
+	if (!name)
+		return -1;
+
+#ifdef WIN32
+        fd = open(name, (readonly ? O_RDONLY : O_RDWR) | O_BINARY);
+#else
+        fd = open(name, (readonly ? O_RDONLY : O_RDWR));
+#endif
+
+	return fd;
 }
 
 
 
-long file_size(FILE *fp)
+off_t file_size(int fd)
 {
 	struct stat buf;
 
-	if (!fp)
+	if (fd < 0)
 		return -1;
-	if (fstat(fileno(fp),&buf) != 0)
+	if (fstat(fd, &buf) != 0)
 		return -2;
 
-	return (long)buf.st_size;
+	return buf.st_size;
 }
 
 
@@ -117,58 +143,6 @@ int file_exists(const char *pathname)
 	return (stat(pathname,&buf) == 0 ? 1 : 0);
 }
 
-
-
-#define COPY_BUF_SIZE  (256 * 1024)
-
-int copy_file(const char *srcfile, const char *dstfile)
-{
-	FILE *in,*out;
-	unsigned char *buf;
-	int r,w;
-	int err=0;
-
-	if (!srcfile || !dstfile)
-		return -1;
-
-	if (!(in = fopen(srcfile, "rb"))) {
-		warn("failed to open file for reading: %s", srcfile);
-		return -2;
-	}
-	if (!(out = create_file(dstfile))) {
-		fclose(in);
-		warn("failed to open file for writing: %s", dstfile);
-		return -3;
-	}
-
-	if (!(buf = calloc(COPY_BUF_SIZE, 1)))
-		fatal("out of memory");
-
-
-	do {
-		r = fread(buf, 1, COPY_BUF_SIZE, in);
-		if (r > 0) {
-			w = fwrite(buf, 1, r, out);
-			if (w != r) {
-				err=1;
-				warn("error writing to file: %s", dstfile);
-				break;
-			}
-		} else {
-			if (ferror(in)) {
-				err=2;
-				warn("error reading from file: %s", srcfile);
-				break;
-			}
-		}
-	} while (!feof(in));
-
-	fclose(out);
-	fclose(in);
-	free(buf);
-
-	return err;
-}
 
 
 void fatal(const char *format, ...)
