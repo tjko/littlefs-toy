@@ -26,6 +26,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/errno.h>
+#include <sys/types.h>
+#include <dirent.h>
 #if defined(HAVE_GETOPT_H) && defined(HAVE_GETOPT_LONG)
 #include <getopt.h>
 #else
@@ -36,6 +38,7 @@
 #include "lfs_driver.h"
 #include "littlefs-toy.h"
 
+#define PATHSEPARATOR "/"
 
 
 int command = LFS_NONE;
@@ -137,7 +140,7 @@ bool match_param(const char *name, param_t *list)
 }
 
 
-static int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive, param_t *params)
+int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive, param_t *params)
 {
 	lfs_dir_t dir;
 	struct lfs_info info;
@@ -217,6 +220,196 @@ static int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive, param
 	return res;
 }
 
+
+static int make_dir(lfs_t *lfs, const char *pathname)
+{
+	int res = 0;
+	char *path, *tok, *saveptr;
+
+//	printf("make_dir(%p,'%s')\n", lfs, pathname);
+
+	if (!lfs || !pathname)
+		return -1;
+
+	if (!(path = strdup(pathname)))
+		return -2;
+
+	if ((tok = strtok_r(path, "/", &saveptr))) {
+		while (tok) {
+			/* printf("dir '%s'\n", path); */
+			res = lfs_mkdir(lfs, path);
+			if (res != LFS_ERR_EXIST && res != LFS_ERR_OK) {
+				res = -4;
+				break;
+			}
+			*(saveptr - 1) = '/';
+			tok = strtok_r(NULL, "/", &saveptr);
+		}
+	} else {
+		res = -3;
+	}
+
+	free(path);
+
+	return res;
+}
+
+
+
+#define COPY_BUF_SIZE (256 * 1024)
+
+int copy_file_in(lfs_t *lfs, const char *pathname)
+{
+	lfs_file_t file;
+	int res = 0;
+	int fd;
+	char *dirname, *p;
+	void *buf;
+	ssize_t len;
+
+
+//	printf("copy_file_in(%p,'%s')\n", lfs, pathname);
+
+	if (!lfs || !pathname)
+		return -1;
+
+	if (verbose_mode)
+		printf("%s\n", pathname);
+
+	/* Create directory for the file */
+	if (!(dirname = strdup(pathname)))
+		return -2;
+	if ((p = strrchr(dirname, '/'))) {
+		*p = 0;
+		if ((res = make_dir(lfs, dirname)))
+			res = -3;
+	}
+	free(dirname);
+
+	/* Create the file */
+	if ((fd = open_file(pathname, true)) >= 0) {
+		res = lfs_file_open(lfs, &file, pathname, LFS_O_WRONLY | LFS_O_CREAT);
+		if (res == LFS_ERR_OK) {
+			if ((buf = calloc(1, COPY_BUF_SIZE))) {
+				while ((len = read(fd, buf, COPY_BUF_SIZE)) > 0) {
+					if (lfs_file_write(lfs, &file, buf, len) < len) {
+						res = -7;
+						break;
+					}
+				}
+				free(buf);
+			} else {
+				res = -6;
+			}
+			lfs_file_close(lfs, &file);
+		} else {
+			res =-5;
+		}
+		close(fd);
+	}
+	else {
+		res = -4;
+	}
+
+	return res;
+}
+
+
+int copy_dir_in(lfs_t *lfs, const char *dirname)
+{
+	DIR *dir;
+	struct dirent *e;
+	struct stat st;
+	char separator[2] = "/";
+	char fullname[PATH_MAX + 1];
+	size_t dirname_len;
+	int res;
+	int count = 0;
+
+//	printf("copy_dir_in(%p,'%s')\n", lfs, dirname);
+
+	/* Check if path ends with "/" ... */
+	if ((dirname_len = strnlen(dirname, NAME_MAX)) > 0) {
+		if (dirname[dirname_len - 1] == '/')
+			separator[0] = 0;
+	}
+
+	/* Read directory entries */
+	if (!(dir = opendir(dirname))) {
+		warn("failed to open directory: %s", dirname);
+		return -1;
+	}
+	while ((e = readdir(dir))) {
+		/* Skip special directories ("." and "..") */
+		if (e->d_name[0] == '.') {
+			if (e->d_name[1] == 0)
+				continue;
+			if (e->d_name[1] == '.' && e->d_name[2] == 0)
+				continue;
+		}
+		snprintf(fullname, PATH_MAX, "%s%s%s", dirname, separator, e->d_name);
+		fullname[PATH_MAX] = 0;
+
+		if (lstat(fullname, &st)) {
+			warn("cannot stat file: %s", fullname);
+		} else {
+			if (S_ISREG(st.st_mode)) {
+				if ((res = copy_file_in(lfs, fullname))) {
+					warn("failed to copy file: %s (%d)", fullname, res);
+				} else {
+					count++;
+				}
+			}
+			else if (S_ISDIR(st.st_mode)) {
+				if ((res = copy_dir_in(lfs, fullname)) > 0)
+					count += res;
+			}
+			else {
+				warn("skip special file: %s", fullname);
+			}
+		}
+	}
+	closedir(dir);
+
+	return count;
+}
+
+int littlefs_add(lfs_t *lfs, param_t *params, bool overwrite)
+{
+	struct stat st;
+	int count = 0;
+
+	if (params) {
+		param_t *p = params;
+		while (p) {
+			if (lstat(p->name, &st)) {
+				warn("cannot stat file: %s", p->name);
+			} else {
+				if (S_ISREG(st.st_mode)) {
+					if (copy_file_in(lfs, p->name)) {
+						warn("failed to copy file: %s", p->name);
+					} else {
+						count++;
+					}
+				}
+				else if (S_ISDIR(st.st_mode)) {
+					count += copy_dir_in(lfs, p->name);
+				}
+				else {
+					warn("skip special file: %s", p->name);
+				}
+			}
+			p = p->next;
+		}
+	}
+
+	if (count < 1) {
+		warn("no files added to filesystem");
+		return 1;
+	}
+
+	return 0;
+}
 
 
 
@@ -460,15 +653,15 @@ int main(int argc, char **argv)
 	/* Parse parameters to command */
 	bool filecheck = (command == LFS_CREATE || command == LFS_UPDATE) ? true : false;
 	if ((res = parse_params(argc, argv, optind, &params, filecheck)))
-		warn("failed to parse parameters: %d", res);
+		warn("failed to parse all parameters: %d", res);
 
 
 	if (command == LFS_LIST) {
 		if (littlefs_list_dir(&lfs, "./", true, params) > 0)
 			ret = 1;
 	}
-	else if (command == LFS_CREATE) {
-		
+	else if (command == LFS_CREATE || command == LFS_UPDATE) {
+		ret = littlefs_add(&lfs, params, true);
 	}
 	else {
 		fatal("unknown command");
