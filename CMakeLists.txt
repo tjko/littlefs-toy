@@ -47,6 +47,7 @@ target_sources(littlefs INTERFACE
 
 add_executable(lfs
   src/lfs.c
+  src/lfs_driver.c
   src/util.c
 )
 target_include_directories(lfs PRIVATE src)
@@ -76,8 +77,10 @@ target_compile_options(lfs PRIVATE
 )
 
 target_compile_definitions(lfs PRIVATE
-#  LFS_THREADSAFE=1
-  LFS_NO_DEBUG=0
+  LFS_THREADSAFE
+#  LFS_NO_DEBUG
+#  LFS_NO_WARN
+#  LFS_NO_ERROR
 )
 
 

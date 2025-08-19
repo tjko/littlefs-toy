@@ -33,234 +33,116 @@
 #endif
 #include <lfs.h>
 
+#include "lfs_driver.h"
 #include "littlefs-toy.h"
 
 
 
 int command = LFS_NONE;
 int verbose_mode = 0;
+int overwrite_mode = 0;
 char *image_file = NULL;
+char *directory = NULL;
 lfs_size_t block_size = 4096;
 uint32_t image_size = 0;
 uint32_t image_offset = 0;
 
-const struct option long_options[] = {
-	{ "create",             0, &command,            LFS_CREATE },
-	{ "update",             0, &command,            LFS_UPDATE },
-	{ "delete",             0, &command,            LFS_DELETE },
-	{ "list",               0, &command,            LFS_LIST },
+static const struct option long_options[] = {
+	{ "create",             0, NULL,                'c' },
+	{ "update",             0, NULL,                'r' },
+	{ "delete",             0, NULL,                'd' },
+	{ "list",               0, NULL,                't' },
 	{ "file",               1, NULL,                'f' },
 	{ "block-size",         1, NULL,                'b' },
 	{ "size",               1, NULL,                's' },
 	{ "offset",             1, NULL,                'o' },
+	{ "directory",          1, NULL,                'C' },
 	{ "help",		0, NULL,		'h' },
 	{ "verbose",		0, NULL,		'v' },
 	{ "version",		0, NULL,		'V' },
+	{ "overwrite",          0, &overwrite_mode,     1 },
 	{ NULL, 0, NULL, 0 }
 };
 
-const char *copyright = "Copyright (C) 2025 Timo Kokkonen.";
+static const char *copyright = "Copyright (C) 2025 Timo Kokkonen.";
 
-struct lfs_context {
-	struct lfs_config cfg;
-	int fd;
-	void *base;
-	size_t offset;
-};
+typedef struct param_t {
+	const char *name;
+	bool found;
+	struct param_t *next;
+} param_t;
 
 
-static int block_read(const struct lfs_config *c, lfs_block_t block,
-		lfs_off_t off, void *buffer, lfs_size_t size)
+int parse_params(int argc, char **argv, int start, param_t **list, bool filecheck)
 {
-	struct lfs_context *ctx = (struct lfs_context*)c->context;
-//	printf("block_read(%p,%u,%u,%p,%u)\n", c, block, off, buffer, size);
+	int res = 0;
+	int idx = start;
+	param_t *tail = NULL;
+	param_t *p;
+	char fullname[LFS_NAME_MAX * 2];
 
-	if (c->block_count > 0 && block >= c->block_count) {
-		warn("attempt to read past end of filesystem");
-		return LFS_ERR_IO;
-	}
-	if (off + size > c->block_size) {
-		warn("attempt to read past end of block");
-		return LFS_ERR_IO;
-	}
+	*list = NULL;
 
-	if (ctx->fd >= 0) {
-		off_t f_offset = ctx->offset + (block * c->block_size) + off;
-		if (lseek(ctx->fd, f_offset, SEEK_SET) < 0) {
-			warn("seek failed: %ld (errno=%d)", f_offset, errno);
-			return LFS_ERR_IO;
+	while (idx < argc) {
+		char *arg = argv[idx++];
+		char prefix[3] = "./";
+
+		if (filecheck) {
+			if (!file_exists(arg)) {
+				warn("%s: No such file or directory", arg);
+				res++;
+				continue;
+			}
+			prefix[0] = 0;
 		}
-		if (read(ctx->fd, buffer, size) < size) {
-			warn("failed to read file");
-			return LFS_ERR_IO;
+		else {
+			if (arg[0] == '/')
+				prefix[1] = 0;
+			else if (arg[0] == '.' && arg[1] == '/')
+				prefix[0] = 0;
 		}
-	} else {
-		memcpy(buffer, ctx->base + (block * c->block_size) + off, size);
+
+		snprintf(fullname, sizeof(fullname), "%s%s", prefix, arg);
+
+		if (!(p = calloc(1, sizeof(param_t))))
+			fatal("out of memory");
+		p->name = strdup(fullname);
+
+		if (*list == NULL)
+			*list = p;
+		if (tail)
+			tail->next = p;
+		tail = p;
 	}
-	return LFS_ERR_OK;
+
+	return res;
 }
 
-static int block_prog(const struct lfs_config *c, lfs_block_t block,
-		lfs_off_t off, const void *buffer, lfs_size_t size)
+
+bool match_param(const char *name, param_t *list)
 {
-	struct lfs_context *ctx = (struct lfs_context*)c->context;
+	if (!name || !list)
+		return false;
 
-	if (block >= c->block_count) {
-		warn("attempt to write past end of filesystem");
-		return LFS_ERR_IO;
-	}
-	if (off % c->prog_size != 0) {
-		warn("flash addres must be aligned to flash page");
-		return LFS_ERR_IO;
-	}
-	if (size % c->prog_size != 0) {
-		warn("bytes to write must be multiple of flash page size");
-		return LFS_ERR_IO;
-	}
-	if (off + size > c->block_size) {
-		warn("write must be within a block");
-		return LFS_ERR_IO;
-	}
-
-	if (ctx->fd >= 0) {
-		off_t f_offset = ctx->offset + (block * c->block_size) + off;
-		if (lseek(ctx->fd, f_offset, SEEK_SET) < 0) {
-			warn("seek failed: %ld", f_offset);
-			return LFS_ERR_IO;
+	param_t *p = list;
+	while (p) {
+		if (!strcmp(name, p->name)) {
+			p->found = true;
+			return true;
 		}
-		if (write(ctx->fd, buffer, size) < size) {
-			warn("failed to read file");
-			return LFS_ERR_IO;
-		}
-	} else {
-		memcpy(ctx->base + (block * c->block_size) + off, buffer, size);
+		p = p->next;
 	}
 
-	return LFS_ERR_OK;
-}
-
-static int block_erase(const struct lfs_config *c, lfs_block_t block)
-{
-	return LFS_ERR_OK;
-}
-
-static int block_sync(const struct lfs_config *c)
-{
-	struct lfs_context *ctx = (struct lfs_context*)c->context;
-
-	if (ctx->fd >= 0) {
-		if (fsync(ctx->fd)) {
-			warn("fsync() failed: %d", errno);
-			return LFS_ERR_IO;
-		}
-	}
-
-	return LFS_ERR_OK;
-}
-
-static void init_lfs_config(struct lfs_config *cfg, size_t blocksize, size_t blocks, void *ctx)
-{
-	memset(cfg, 0, sizeof(struct lfs_config));
-
-	cfg->context = ctx;
-
-	/* I/O callbacks */
-	cfg->read = block_read;
-	cfg->prog = block_prog;
-	cfg->erase = block_erase;
-	cfg->sync = block_sync;
-
-	/* LFS settings */
-	cfg->read_size = 1;
-	cfg->prog_size = blocksize;
-	cfg->block_size = blocksize;
-	cfg->block_count = blocks;
-
-	cfg->block_cycles = 300;
-	cfg->cache_size = blocksize;
-	cfg->lookahead_size = 32;
-
-}
-
-struct lfs_context* lfs_init_mem(void *base, size_t size, size_t blocksize)
-{
-	if (!base || size < 1 || blocksize < 1)
-		return NULL;
-
-	if (size % blocksize != 0) {
-		warn("image size not multiple of blocksize");
-		return NULL;
-	}
-	if (size < blocksize) {
-		warn("image smaller than blocksize");
-		return NULL;
-	}
-
-	struct lfs_context *ctx = calloc(1, sizeof(struct lfs_context));
-	if (!ctx) {
-		warn("out of memory");
-		return NULL;
-	}
-
-	ctx->fd = -1;
-	ctx->base = base;
-	ctx->offset = 0;
-
-	init_lfs_config(&ctx->cfg, blocksize, size / blocksize, ctx);
-
-	return ctx;
+	return false;
 }
 
 
-struct lfs_context* lfs_init_file(int fd, size_t offset, size_t size, size_t blocksize)
-{
-	if (fd < 0 || blocksize < 1) {
-		warn("invalid arguments");
-		return NULL;
-	}
-
-	if (offset % blocksize != 0) {
-		warn("offset not multiple of blocksize");
-		return NULL;
-	}
-	if (size % blocksize != 0) {
-		warn("image size not multiple of blocksize");
-		return NULL;
-	}
-
-	struct stat st;
-	if (fstat(fd, &st) != 0) {
-		warn("failed to stat file");
-		return NULL;
-	}
-	if (offset + size > st.st_size) {
-		warn("file too small");
-		return NULL;
-	}
-
-	struct lfs_context *ctx = calloc(1, sizeof(struct lfs_context));
-	if (!ctx) {
-		warn("out of memory");
-		return NULL;
-	}
-
-	ctx->fd = fd;
-	ctx->base = NULL;
-	ctx->offset = offset;
-
-	init_lfs_config(&ctx->cfg, blocksize, size / blocksize, ctx);
-
-	return ctx;
-}
-
-
-
-static int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive)
+static int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive, param_t *params)
 {
 	lfs_dir_t dir;
 	struct lfs_info info;
 	char separator[2] = "/";
-	char *dirname;
+	char fullname[LFS_NAME_MAX * 2];
 	size_t path_len;
 	int res;
 
@@ -274,51 +156,65 @@ static int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive)
 			separator[0] = 0;
 	}
 
-	printf("Directory: %s\n\n", path);
 
 	/* Open directory */
 	if ((res = lfs_dir_open(lfs, &dir, path)) != LFS_ERR_OK)
 		return res;
 
-	/* First scan for directories... */
+	/* Read directory entries... */
 	while ((res = lfs_dir_read(lfs, &dir, &info)) > 0) {
-		if (info.type == LFS_TYPE_DIR)
-			printf("%-50s %10s\n", info.name, "<DIR>");
-	}
+		bool skip = false;
 
-	/* Next scan for files... */
-	lfs_dir_rewind(lfs, &dir);
-	while ((res = lfs_dir_read(lfs, &dir, &info)) > 0) {
-		if (info.type == LFS_TYPE_REG)
-			printf("%-50s %10u\n", info.name, info.size);
-	}
-	printf("\n");
-
-	if (recursive) {
-		/* Scan subdirectories recursively... */
-		lfs_dir_rewind(lfs, &dir);
-		while ((res = lfs_dir_read(lfs, &dir, &info)) > 0) {
-			if (info.type != LFS_TYPE_DIR)
+		/* Skip special directories ("." and "..") */
+		if (info.name[0] == '.') {
+			if (info.name[1] == 0)
 				continue;
-			/* Skip special directories ("." and "..") */
-			if (info.name[0] == '.') {
-				if (info.name[1] == 0)
-					continue;
-				if (info.name[1] == '.' && info.name[2] == 0)
-					continue;
-			}
-			if ((dirname = malloc(LFS_NAME_MAX + 1))) {
-				snprintf(dirname, LFS_NAME_MAX + 1, "%s%s%s",
+			if (info.name[1] == '.' && info.name[2] == 0)
+				continue;
+		}
+
+		snprintf(fullname, sizeof(fullname), "%s%s%s", path, separator, info.name);
+		fullname[LFS_NAME_MAX] = 0;
+
+		if (params) {
+			if (!match_param(fullname, params))
+				skip = true;
+		}
+
+		if (!skip) {
+			if (verbose_mode) {
+				printf("%crw-rw-rw- root/root %9u 0000-00-00 00:00 %s%s%s\n",
+					(info.type == LFS_TYPE_DIR ? 'd' : '-'),
+					info.size,
 					path, separator, info.name);
-				littlefs_list_dir(lfs, dirname, recursive);
-				free(dirname);
 			}
+			else {
+				printf("%s%s%s\n", path, separator, info.name);
+			}
+		}
+
+		if (info.type == LFS_TYPE_DIR && recursive) {
+			littlefs_list_dir(lfs, fullname, recursive, params);
 		}
 	}
 
+	/* Close directory */
 	lfs_dir_close(lfs, &dir);
 
-	return LFS_ERR_OK;
+	res = 0;
+	if (params) {
+		param_t *p = params;
+		while (p) {
+			if (!p->found) {
+				warn("%s: not found in the filesystem", p->name);
+				res = 1;
+			}
+			p = p->next;
+		}
+
+	}
+
+	return res;
 }
 
 
@@ -359,6 +255,7 @@ void print_usage()
 		" -h, --help                               display usage information and exit\n"
 		" -v, --verbose                            enable verbose mode\n"
 		" -V, --version                            display program version\n"
+		" --overwrite                              overwrite image file\n"
 		"\n\n");
 }
 
@@ -390,7 +287,7 @@ int parse_arguments(int argc, char **argv)
 
 	while (1) {
 		opt_index = 0;
-		if ((c = getopt_long(argc, argv, "crdtf:b:s:o:hvV",
+		if ((c = getopt_long(argc, argv, "crdtf:b:s:o:C:hvV",
 						long_options, &opt_index)) == -1)
 			break;
 
@@ -417,7 +314,7 @@ int parse_arguments(int argc, char **argv)
 			break;
 
 		case 'b':
-			if (parse_arg_val(optarg, &val, 104, ((int64_t)1 << 31))) {
+			if (parse_arg_val(optarg, &val, 128, ((int64_t)1 << 31))) {
 				fatal("invalid block-size specified: %s", optarg);
 			}
 			block_size = val;
@@ -436,6 +333,12 @@ int parse_arguments(int argc, char **argv)
 				exit(1);
 			}
 			image_offset = val;
+			break;
+
+		case 'C':
+			if (directory)
+				free(directory);
+			directory = strdup(optarg);
 			break;
 
 		case 'h':
@@ -457,15 +360,20 @@ int parse_arguments(int argc, char **argv)
 
 
 	if (command == LFS_NONE) {
-		fprintf(stderr, "No command specified\n\n");
+		fprintf(stderr, "no command specified\n\n");
 		print_usage();
 		exit(1);
 	}
 
 	if (!image_file) {
-		fprintf(stderr, "No image file specified\n\n");
+		fprintf(stderr, "no image file (-f <filename>) specified\n\n");
 		print_usage();
 		exit(1);
+	}
+
+	if (command == LFS_CREATE) {
+		if (image_size < 1)
+			fatal("image size (-s <imagesize>) must be specified to create a new image");
 	}
 
 	return optind;
@@ -475,10 +383,13 @@ int parse_arguments(int argc, char **argv)
 int main(int argc, char **argv)
 {
 	struct lfs_context *ctx;
+	param_t *params = NULL;
 	lfs_t lfs;
 	int fd = -1;
+	int ret = 0;
+	int res;
 
-	int res = parse_arguments(argc, argv);
+	parse_arguments(argc, argv);
 
 #if 0
 	printf("image file: %s\n", image_file);
@@ -487,41 +398,80 @@ int main(int argc, char **argv)
 	printf("offset: %u\n", image_offset);
 #endif
 
+
 	/* Open image file */
 	if (!file_exists(image_file)) {
 		if (command != LFS_CREATE)
 			fatal("image file not found: %s", image_file);
-		if (image_size < 1)
-			fatal("image size must be specified to create image");
 		if ((fd = create_file(image_file, image_size + image_offset)) < 0)
 			fatal("cannot create image file: %s", image_file);
 	}
 	else {
+		if (!overwrite_mode && command == LFS_CREATE)
+			fatal("image file already exists: %s", image_file);
+
 		if ((fd = open_file(image_file, (command == LFS_LIST ? true : false))) < 0)
 			fatal("cannot open image file: %s", image_file);
+
+		if (command == LFS_CREATE) {
+			off_t sz = file_size(fd);
+			if (sz < 0)
+				fatal("cannot determine file size: %s", image_file);
+			if (sz < image_offset + image_size) {
+				if ((res = file_set_zero(fd, image_offset, image_size)))
+					fatal("failed to zero-out lfs image");
+			}
+		}
 	}
 
+	/* Change directory if -C, --directory option specified. */
+	if (directory) {
+		if (chdir(directory))
+			fatal("cannot change directory to: %s", directory);
+	}
+
+	/* Initialize lfs library */
+	if (!(ctx = lfs_init_file(fd, image_offset, image_size, block_size)))
+		fatal("failed to initialize LittleFS");
+
+	if (command == LFS_CREATE) {
+		/* Make new filesystem */
+		if ((res = lfs_format(&lfs, &ctx->cfg)) != LFS_ERR_OK)
+			fatal("failed to create (format) a new LittleFS filesystem: %d", res);
+	}
 
 	/* Mount LittleFS */
-	if (!(ctx = lfs_init_file(fd, image_offset, 0, block_size)))
-		fatal("Failed to initialize LittleFS");
 	if ((res = lfs_mount(&lfs, &ctx->cfg)) != LFS_ERR_OK)
-		fatal("Failed to mount LittleFS: %d", res);
-
-	lfs_size_t used_blocks = lfs_fs_size(&lfs);
+		fatal("failed to mount LittleFS: %d", res);
 
 	if (verbose_mode) {
+		lfs_size_t used_blocks = lfs_fs_size(&lfs);
+
 		printf("Filesystem size: %10u bytes (%u blocks)\n", block_size * lfs.block_count,
 			lfs.block_count);
 		printf("           used: %10u bytes (%u blocks)\n", block_size * used_blocks,
 			used_blocks);
-		printf("           free: %10u bytes (%u blocks)\n",
+		printf("           free: %10u bytes (%u blocks)\n\n",
 			block_size * (lfs.block_count - used_blocks), lfs.block_count - used_blocks);
-		printf("     block size: %10u bytes\n\n", block_size);
+		printf("      blocksize: %10u bytes\n\n", block_size);
 	}
 
+
+	/* Parse parameters to command */
+	bool filecheck = (command == LFS_CREATE || command == LFS_UPDATE) ? true : false;
+	if ((res = parse_params(argc, argv, optind, &params, filecheck)))
+		warn("failed to parse parameters: %d", res);
+
+
 	if (command == LFS_LIST) {
-		littlefs_list_dir(&lfs, "/", true);
+		if (littlefs_list_dir(&lfs, "./", true, params) > 0)
+			ret = 1;
+	}
+	else if (command == LFS_CREATE) {
+		
+	}
+	else {
+		fatal("unknown command");
 	}
 
 
@@ -532,5 +482,5 @@ int main(int argc, char **argv)
 	if (fd >= 0)
 		close(fd);
 
-	return 0;
+	return ret;
 }

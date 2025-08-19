@@ -35,14 +35,52 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
+#include <errno.h>
 
 #include "littlefs-toy.h"
 
 #define BUF_SIZE (64 * 1024)
 
+
+
+int file_set_zero(int fd, off_t offset, off_t size)
+{
+	if (fd < 0)
+		return -1;
+
+	if (size > 0) {
+		off_t written = 0;
+		off_t curr_pos;
+		void *buf;
+
+		if ((curr_pos = lseek(fd, 0, SEEK_CUR)) < 0)
+			return -2;
+
+		if (!(buf = calloc(1, BUF_SIZE)))
+			return -3;
+
+		while (written < size) {
+			size_t len = ((size - written) > BUF_SIZE ? BUF_SIZE : (size - written));
+			if (write(fd, buf, len) < len)
+				break;
+			written += len;
+		}
+		free(buf);
+
+		if (written < size)
+			return -4;
+
+		if (lseek(fd, curr_pos, SEEK_SET) < 0)
+			return -5;
+	}
+
+	return 0;
+}
+
+
 int create_file(const char *name, off_t size)
 {
-        int fd;
+        int fd, res;
 
         if (!name)
                 return -1;
@@ -52,20 +90,11 @@ int create_file(const char *name, off_t size)
 #else
         fd = open(name, O_RDWR | O_CREAT | O_TRUNC, S_IWUSR | S_IRUSR);
 #endif
-
-	if (size > 0) {
-		void *buf = calloc(1, BUF_SIZE);
-		if (!buf)
-			fatal("out of memory");
-		off_t written = 0;
-
-		while (written < size) {
-			size_t len = ((size - written) > BUF_SIZE ? BUF_SIZE : (size - written));
-			if (write(fd, buf, len) < len)
-				fatal("failed to write to file: %s", name);
-			written += len;
-		}
-		lseek(fd, SEEK_SET, 0);
+	if (fd < 0)
+		warn("failed to create file: %s (%d)", name, errno);
+	else if (size > 0) {
+		if ((res = file_set_zero(fd, 0, size)))
+			warn("failed to create empty file: %s (%d)", name, res);
 	}
 
         return fd;

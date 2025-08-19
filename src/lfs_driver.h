@@ -1,4 +1,4 @@
-/* littlefs-toy.h
+/* lfs_driver.h
    Copyright (C) 2025 Timo Kokkonen <tjko@iki.fi>
 
    SPDX-License-Identifier: GPL-3.0-or-later
@@ -19,37 +19,36 @@
    along with LittleFS-Toy. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef LITTLEFS_TOY_H
-#define LITTLEFS_TOY_H
+#ifndef _LFS_DRIVER_H_
+#define _LFS_DRIVER_H_
 
-#include <sys/stat.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include "config.h"
+#include <lfs.h>
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 
-
-enum lfs_commands {
-	LFS_NONE   = 0,
-	LFS_LIST   = 1,
-	LFS_CREATE = 2,
-	LFS_UPDATE = 3,
-	LFS_DELETE = 4,
+struct lfs_context {
+	struct lfs_config cfg;
+	int fd;
+	void *base;
+	size_t offset;
+#ifdef LFS_THREADSAFE
+	pthread_mutex_t mutex;
+#endif
 };
 
 
-
-/* util.c */
-int file_set_zero(int fd, off_t offset, off_t size);
-int create_file(const char *name, off_t size);
-int open_file(const char *name, bool readonly);
-off_t file_size(int fd);
-int is_directory(const char *path);
-int is_file(const char *filename, struct stat *st);
-int file_exists(const char *pathname);
-int rename_file(const char *old_path, const char *new_path);
-void fatal(const char *format, ...);
-void warn(const char *format, ...);
+struct lfs_context* lfs_init_mem(void *base, size_t size, size_t blocksize);
+struct lfs_context* lfs_init_file(int fd, size_t offset, size_t size, size_t blocksize);
+void lfs_destroy_context(struct lfs_context *ctx);
 
 
-#endif /* LITTLEFS_TOY_H */
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
+#endif /* _LFS_DRIVER_H_ */
