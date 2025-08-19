@@ -1,0 +1,153 @@
+.TH LFS 1 "August 2025" "littlefs-toy" "User Commands"
+.SH NAME
+lfs \- tool for working with LittleFS images
+.SH SYNOPSIS
+.B lfs
+[\fIOPTION\fR]... \fICOMMAND\fR [\fIARG\fR]...
+.SH DESCRIPTION
+.B lfs
+is a tool for creating, mounting, and manipulating LittleFS images.
+LittleFS is a little fail-safe filesystem designed for microcontrollers and embedded systems.
+.PP
+The tool supports various operations on LittleFS images including creation, mounting,
+file extraction, file injection, and image inspection.
+.SH COMMANDS
+.TP
+.BR create " " \fISIZE\fR " " \fIIMAGE\fR
+Create a new LittleFS image of the specified size. \fISIZE\fR can be specified
+in bytes or with suffixes K, M, G for kilobytes, megabytes, or gigabytes.
+.TP
+.BR mount " " \fIIMAGE\fR " " \fIMOUNTPOINT\fR
+Mount a LittleFS image at the specified mountpoint using FUSE.
+.TP
+.BR unmount " " \fIMOUNTPOINT\fR
+Unmount a previously mounted LittleFS image.
+.TP
+.BR list " " \fIIMAGE\fR " " [\fIPATH\fR]
+List files and directories in the LittleFS image. If \fIPATH\fR is specified,
+list only the contents of that directory.
+.TP
+.BR extract " " \fIIMAGE\fR " " \fISRC\fR " " \fIDEST\fR
+Extract a file or directory from the LittleFS image to the local filesystem.
+.TP
+.BR add " " \fIIMAGE\fR " " \fISRC\fR " " \fIDEST\fR
+Add a file or directory from the local filesystem to the LittleFS image.
+.TP
+.BR remove " " \fIIMAGE\fR " " \fIPATH\fR
+Remove a file or directory from the LittleFS image.
+.TP
+.BR info " " \fIIMAGE\fR
+Display information about the LittleFS image including size, block size,
+used space, and filesystem parameters.
+.TP
+.BR fsck " " \fIIMAGE\fR
+Check the filesystem integrity of the LittleFS image and report any errors.
+.SH OPTIONS
+.TP
+.BR \-v ", " \-\-verbose
+Enable verbose output showing detailed information about operations.
+.TP
+.BR \-q ", " \-\-quiet
+Suppress all non-error output.
+.TP
+.BR \-h ", " \-\-help
+Display help information and exit.
+.TP
+.BR \-V ", " \-\-version
+Display version information and exit.
+.TP
+.BR \-b ", " \-\-block-size " " \fISIZE\fR
+Set the block size for filesystem operations (default: 4096).
+Must be a power of 2 between 104 and 65536.
+.TP
+.BR \-r ", " \-\-read-size " " \fISIZE\fR
+Set the read size for filesystem operations (default: 512).
+Must be a multiple of the block size.
+.TP
+.BR \-p ", " \-\-prog-size " " \fISIZE\fR
+Set the program size for filesystem operations (default: 512).
+Must be a multiple of the read size.
+.TP
+.BR \-e ", " \-\-erase-size " " \fISIZE\fR
+Set the erase size for filesystem operations (default: 65536).
+Must be a multiple of the program size.
+.TP
+.BR \-c ", " \-\-cache-size " " \fISIZE\fR
+Set the cache size for filesystem operations (default: 512).
+Must be a multiple of the read and program sizes.
+.TP
+.BR \-l ", " \-\-lookahead-size " " \fISIZE\fR
+Set the lookahead buffer size (default: 128).
+Must be a multiple of 8.
+.TP
+.BR \-f ", " \-\-format
+Format the image when creating (equivalent to create command).
+.TP
+.BR \-R ", " \-\-recursive
+Recursively process directories for add, extract, and remove operations.
+.SH EXAMPLES
+.PP
+Create a 1MB LittleFS image:
+.RS
+.B lfs create 1M filesystem.lfs
+.RE
+.PP
+Mount a LittleFS image:
+.RS
+.B lfs mount filesystem.lfs /mnt/lfs
+.RE
+.PP
+List all files in the image:
+.RS
+.B lfs list filesystem.lfs
+.RE
+.PP
+Extract a file from the image:
+.RS
+.B lfs extract filesystem.lfs /config.txt ./config.txt
+.RE
+.PP
+Add a directory recursively to the image:
+.RS
+.B lfs add -R filesystem.lfs ./data/ /data/
+.RE
+.PP
+Check filesystem integrity:
+.RS
+.B lfs fsck filesystem.lfs
+.RE
+.PP
+Display image information:
+.RS
+.B lfs info filesystem.lfs
+.RE
+.SH FILES
+.TP
+.I ~/.lfsrc
+User configuration file for default options.
+.TP
+.I /etc/lfs.conf
+System-wide configuration file.
+.SH EXIT STATUS
+.B lfs
+exits with status 0 on success, and >0 if an error occurs.
+.SH SEE ALSO
+.BR mkfs (8),
+.BR mount (8),
+.BR fusermount (1),
+.BR dd (1)
+.PP
+LittleFS specification and documentation:
+.I https://github.com/littlefs-project/littlefs
+.SH AUTHOR
+Written by Timo Kokkonen.
+.SH COPYRIGHT
+Copyright \(co 2025 Timo Kokkonen.
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
+.br
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+.SH BUGS
+Report bugs to: <tjko@iki.fi>
+.br
+Project home page: <https://github.com/tjko/littlefs-toy>
