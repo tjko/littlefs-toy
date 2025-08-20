@@ -43,8 +43,8 @@ enum lfs_commands {
 int create_file(const char *name, off_t size);
 int open_file(const char *name, bool readonly);
 int file_set_zero(int fd, off_t offset, off_t size);
-int read_file(int fd, void *buf, size_t size);
-int write_file(int fd, void *buf, size_t size);
+int read_file(int fd, off_t offset, void *buf, size_t size);
+int write_file(int fd, off_t offset, void *buf, size_t size);
 off_t file_size(int fd);
 int is_directory(const char *path);
 int is_file(const char *filename, struct stat *st);
@@ -52,7 +52,8 @@ int file_exists(const char *pathname);
 int rename_file(const char *old_path, const char *new_path);
 void fatal(const char *format, ...);
 void warn(const char *format, ...);
-const char* last_warning();
+const char* warn_last_msg();
+void warn_clear_last_msg();
 void warn_mode(bool enabled);
 
 #endif /* LITTLEFS_TOY_H */
