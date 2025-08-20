@@ -3,138 +3,115 @@
 lfs \- tool for working with LittleFS images
 .SH SYNOPSIS
 .B lfs
-[\fIOPTION\fR]... \fICOMMAND\fR [\fIARG\fR]...
+\fICOMMAND\fR [\fIOPTION\fR]... [\fIFILE\fR | \fIPATTERN\fR]...
 .SH DESCRIPTION
 .B lfs
-is a tool for creating, mounting, and manipulating LittleFS images.
+is a tool for creating and manipulating LittleFS images.
 LittleFS is a little fail-safe filesystem designed for microcontrollers and embedded systems.
 .PP
-The tool supports various operations on LittleFS images including creation, mounting,
-file extraction, file injection, and image inspection.
+The tool supports creating new LittleFS images, adding files to existing images,
+listing image contents, and removing files from images.
 .SH COMMANDS
 .TP
-.BR create " " \fISIZE\fR " " \fIIMAGE\fR
-Create a new LittleFS image of the specified size. \fISIZE\fR can be specified
-in bytes or with suffixes K, M, G for kilobytes, megabytes, or gigabytes.
+.BR \-c ", " \-\-create
+Create (format) a new LittleFS image and add specified files to it.
+Requires \fB\-s\fR option to specify the image size.
 .TP
-.BR mount " " \fIIMAGE\fR " " \fIMOUNTPOINT\fR
-Mount a LittleFS image at the specified mountpoint using FUSE.
+.BR \-r ", " \-\-append
+Append (add) files to an existing LittleFS image.
 .TP
-.BR unmount " " \fIMOUNTPOINT\fR
-Unmount a previously mounted LittleFS image.
+.BR \-d ", " \-\-delete
+Remove files from an existing LittleFS image.
 .TP
-.BR list " " \fIIMAGE\fR " " [\fIPATH\fR]
-List files and directories in the LittleFS image. If \fIPATH\fR is specified,
-list only the contents of that directory.
-.TP
-.BR extract " " \fIIMAGE\fR " " \fISRC\fR " " \fIDEST\fR
-Extract a file or directory from the LittleFS image to the local filesystem.
-.TP
-.BR add " " \fIIMAGE\fR " " \fISRC\fR " " \fIDEST\fR
-Add a file or directory from the local filesystem to the LittleFS image.
-.TP
-.BR remove " " \fIIMAGE\fR " " \fIPATH\fR
-Remove a file or directory from the LittleFS image.
-.TP
-.BR info " " \fIIMAGE\fR
-Display information about the LittleFS image including size, block size,
-used space, and filesystem parameters.
-.TP
-.BR fsck " " \fIIMAGE\fR
-Check the filesystem integrity of the LittleFS image and report any errors.
+.BR \-t ", " \-\-list
+List contents of an existing LittleFS image.
 .SH OPTIONS
 .TP
-.BR \-v ", " \-\-verbose
-Enable verbose output showing detailed information about operations.
+.BR \-f " " \fIIMAGEFILE\fR ", " \-\-file=\fIIMAGEFILE\fR
+Specify the LittleFS image file location. This option is required.
 .TP
-.BR \-q ", " \-\-quiet
-Suppress all non-error output.
+.BR \-b " " \fIBLOCKSIZE\fR ", " \-\-block-size=\fIBLOCKSIZE\fR
+Set the LittleFS filesystem blocksize in bytes (default: 4096).
+Must be between 128 and 2147483648.
+.TP
+.BR \-s " " \fIIMAGESIZE\fR ", " \-\-size=\fIIMAGESIZE\fR
+Set the LittleFS filesystem size in bytes. This option is required when creating a new image with \fB\-c\fR.
+.TP
+.BR \-o " " \fIIMAGEOFFSET\fR ", " \-\-offset=\fIIMAGEOFFSET\fR
+Set the LittleFS filesystem start offset in the image file (default: 0).
+.TP
+.BR \-C " " \fIDIRECTORY\fR ", " \-\-directory=\fIDIRECTORY\fR
+Change to the specified directory before processing files.
 .TP
 .BR \-h ", " \-\-help
 Display help information and exit.
 .TP
+.BR \-v ", " \-\-verbose
+Enable verbose mode. Shows detailed information about operations.
+Can be specified multiple times to increase verbosity.
+.TP
 .BR \-V ", " \-\-version
 Display version information and exit.
 .TP
-.BR \-b ", " \-\-block-size " " \fISIZE\fR
-Set the block size for filesystem operations (default: 4096).
-Must be a power of 2 between 104 and 65536.
+.BR \-O ", " \-\-overwrite
+Overwrite the image file if it already exists (when used with \fB\-c\fR).
 .TP
-.BR \-r ", " \-\-read-size " " \fISIZE\fR
-Set the read size for filesystem operations (default: 512).
-Must be a multiple of the block size.
-.TP
-.BR \-p ", " \-\-prog-size " " \fISIZE\fR
-Set the program size for filesystem operations (default: 512).
-Must be a multiple of the read size.
-.TP
-.BR \-e ", " \-\-erase-size " " \fISIZE\fR
-Set the erase size for filesystem operations (default: 65536).
-Must be a multiple of the program size.
-.TP
-.BR \-c ", " \-\-cache-size " " \fISIZE\fR
-Set the cache size for filesystem operations (default: 512).
-Must be a multiple of the read and program sizes.
-.TP
-.BR \-l ", " \-\-lookahead-size " " \fISIZE\fR
-Set the lookahead buffer size (default: 128).
-Must be a multiple of 8.
-.TP
-.BR \-f ", " \-\-format
-Format the image when creating (equivalent to create command).
-.TP
-.BR \-R ", " \-\-recursive
-Recursively process directories for add, extract, and remove operations.
+.BR \-\-direct
+Write to image file directly instead of using memory buffering.
+Uses less memory but may be slower.
 .SH EXAMPLES
 .PP
 Create a 1MB LittleFS image:
 .RS
-.B lfs create 1M filesystem.lfs
+.B lfs -c -f filesystem.lfs -s 1048576
 .RE
 .PP
-Mount a LittleFS image:
+Create a new image and add files to it:
 .RS
-.B lfs mount filesystem.lfs /mnt/lfs
+.B lfs -c -f filesystem.lfs -s 1048576 file1.txt file2.txt
 .RE
 .PP
-List all files in the image:
+List all files in an existing image:
 .RS
-.B lfs list filesystem.lfs
+.B lfs -t -f filesystem.lfs
 .RE
 .PP
-Extract a file from the image:
+List specific files in an image:
 .RS
-.B lfs extract filesystem.lfs /config.txt ./config.txt
+.B lfs -t -f filesystem.lfs config.txt data/
 .RE
 .PP
-Add a directory recursively to the image:
+Add files to an existing image:
 .RS
-.B lfs add -R filesystem.lfs ./data/ /data/
+.B lfs -r -f filesystem.lfs newfile.txt docs/
 .RE
 .PP
-Check filesystem integrity:
+Remove files from an image:
 .RS
-.B lfs fsck filesystem.lfs
+.B lfs -d -f filesystem.lfs oldfile.txt temp/
 .RE
 .PP
-Display image information:
+Create image with custom block size:
 .RS
-.B lfs info filesystem.lfs
+.B lfs -c -f filesystem.lfs -s 2097152 -b 8192
+.RE
+.PP
+Add files from a different directory:
+.RS
+.B lfs -r -f filesystem.lfs -C /home/user/data .
 .RE
 .SH FILES
 .TP
 .I ~/.lfsrc
-User configuration file for default options.
+User configuration file for default options (not currently implemented).
 .TP
 .I /etc/lfs.conf
-System-wide configuration file.
+System-wide configuration file (not currently implemented).
 .SH EXIT STATUS
 .B lfs
 exits with status 0 on success, and >0 if an error occurs.
 .SH SEE ALSO
-.BR mkfs (8),
-.BR mount (8),
-.BR fusermount (1),
+.BR tar (1),
 .BR dd (1)
 .PP
 LittleFS specification and documentation:
