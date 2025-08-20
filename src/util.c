@@ -118,6 +118,35 @@ int open_file(const char *name, bool readonly)
 }
 
 
+int read_file(int fd, void *buf, size_t size)
+{
+	size_t bytes_read = 0;
+	ssize_t len;
+
+	do {
+		len = read(fd, buf + bytes_read, (size - bytes_read));
+		if (len > 0)
+			bytes_read += len;
+	} while (len > 0 && bytes_read < size);
+
+	return (bytes_read == size ? 0 : -1);
+}
+
+
+int write_file(int fd, void *buf, size_t size)
+{
+	size_t bytes_written = 0;
+	ssize_t len;
+
+	do {
+		len = write(fd, buf + bytes_written, (size - bytes_written));
+		if (len > 0)
+			bytes_written += len;
+	} while (len > 0 && bytes_written < size);
+
+	return (bytes_written == size ? 0 : -1);
+}
+
 
 off_t file_size(int fd)
 {

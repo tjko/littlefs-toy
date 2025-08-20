@@ -78,8 +78,8 @@ target_compile_options(lfs PRIVATE
 
 target_compile_definitions(lfs PRIVATE
   LFS_THREADSAFE
-#  LFS_NO_DEBUG
-#  LFS_NO_WARN
+  LFS_NO_DEBUG
+  LFS_NO_WARN
 #  LFS_NO_ERROR
 )
 

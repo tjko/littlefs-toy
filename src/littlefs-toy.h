@@ -40,9 +40,11 @@ enum lfs_commands {
 
 
 /* util.c */
-int file_set_zero(int fd, off_t offset, off_t size);
 int create_file(const char *name, off_t size);
 int open_file(const char *name, bool readonly);
+int file_set_zero(int fd, off_t offset, off_t size);
+int read_file(int fd, void *buf, size_t size);
+int write_file(int fd, void *buf, size_t size);
 off_t file_size(int fd);
 int is_directory(const char *path);
 int is_file(const char *filename, struct stat *st);

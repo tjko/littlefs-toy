@@ -44,6 +44,7 @@
 int command = LFS_NONE;
 int verbose_mode = 0;
 int overwrite_mode = 0;
+int direct_mode = 0;
 char *image_file = NULL;
 char *directory = NULL;
 lfs_size_t block_size = 4096;
@@ -64,6 +65,7 @@ static const struct option long_options[] = {
 	{ "verbose",		0, NULL,		'v' },
 	{ "version",		0, NULL,		'V' },
 	{ "overwrite",          0, &overwrite_mode,     1 },
+	{ "direct",             0, &direct_mode,        1 },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -75,6 +77,33 @@ typedef struct param_t {
 	struct param_t *next;
 } param_t;
 
+
+
+const char* strip_path_prefix(const char *pathname)
+{
+	const char *p = pathname;
+	const char *t;
+
+	if (p) {
+		while ((t = strstr(p, "/../"))) {
+			p = t + 4;
+		}
+		while (p[0] == '.' || p[0] == '/') {
+			if (p[0] == '.') {
+				if (p[1] == '/')
+					p += 2;
+				else if (p[1] == '.' && p[2] == '/')
+					p += 3;
+				else
+					break;
+			} else {
+				p++;
+			}
+		}
+	}
+
+	return p;
+}
 
 int parse_params(int argc, char **argv, int start, param_t **list, bool filecheck)
 {
@@ -92,7 +121,7 @@ int parse_params(int argc, char **argv, int start, param_t **list, bool filechec
 
 		if (filecheck) {
 			if (!file_exists(arg)) {
-				warn("%s: No such file or directory", arg);
+				warn("%s: no such file or directory", arg);
 				res++;
 				continue;
 			}
@@ -103,6 +132,8 @@ int parse_params(int argc, char **argv, int start, param_t **list, bool filechec
 				prefix[1] = 0;
 			else if (arg[0] == '.' && arg[1] == '/')
 				prefix[0] = 0;
+			else if (arg[0] == '.' && arg[1] == '.' && arg[2] == '/')
+				arg++;
 		}
 
 		snprintf(fullname, sizeof(fullname), "%s%s", prefix, arg);
@@ -140,7 +171,7 @@ bool match_param(const char *name, param_t *list)
 }
 
 
-int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive, param_t *params)
+int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params)
 {
 	lfs_dir_t dir;
 	struct lfs_info info;
@@ -149,8 +180,8 @@ int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive, param_t *par
 	size_t path_len;
 	int res;
 
-	if (!path)
-		return LFS_ERR_INVAL;
+	if (!lfs || !path)
+		return -1;
 
 	/* Check if path ends with "/" ... */
 	path_len = strnlen(path, LFS_NAME_MAX);
@@ -162,7 +193,7 @@ int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive, param_t *par
 
 	/* Open directory */
 	if ((res = lfs_dir_open(lfs, &dir, path)) != LFS_ERR_OK)
-		return res;
+		return -2;
 
 	/* Read directory entries... */
 	while ((res = lfs_dir_read(lfs, &dir, &info)) > 0) {
@@ -197,39 +228,30 @@ int littlefs_list_dir(lfs_t *lfs, const char *path, bool recursive, param_t *par
 		}
 
 		if (info.type == LFS_TYPE_DIR && recursive) {
-			littlefs_list_dir(lfs, fullname, recursive, params);
+			littlefs_list(lfs, fullname, recursive, params);
 		}
 	}
 
 	/* Close directory */
 	lfs_dir_close(lfs, &dir);
 
-	res = 0;
-	if (params) {
-		param_t *p = params;
-		while (p) {
-			if (!p->found) {
-				warn("%s: not found in the filesystem", p->name);
-				res = 1;
-			}
-			p = p->next;
-		}
-
-	}
-
-	return res;
+	return 0;
 }
 
 
-static int make_dir(lfs_t *lfs, const char *pathname)
+int make_dir(lfs_t *lfs, const char *pathname)
 {
-	int res = 0;
+	struct lfs_info info;
 	char *path, *tok, *saveptr;
+	int res = 0;
 
 //	printf("make_dir(%p,'%s')\n", lfs, pathname);
 
 	if (!lfs || !pathname)
 		return -1;
+
+	if (lfs_stat(lfs, pathname, &info) == LFS_ERR_OK)
+		return 0;
 
 	if (!(path = strdup(pathname)))
 		return -2;
@@ -256,13 +278,15 @@ static int make_dir(lfs_t *lfs, const char *pathname)
 
 
 
-#define COPY_BUF_SIZE (256 * 1024)
+#define COPY_BUF_SIZE (1024 * 1024)
 
-int copy_file_in(lfs_t *lfs, const char *pathname)
+int copy_file_in(lfs_t *lfs, const char *pathname, bool overwrite)
 {
 	lfs_file_t file;
+	struct lfs_info info;
 	int res = 0;
 	int fd;
+	const char *newpath;
 	char *dirname, *p;
 	void *buf;
 	ssize_t len;
@@ -273,49 +297,58 @@ int copy_file_in(lfs_t *lfs, const char *pathname)
 	if (!lfs || !pathname)
 		return -1;
 
+	newpath = strip_path_prefix(pathname);
+
+	if (!overwrite) {
+		if (lfs_stat(lfs, newpath, &info) == LFS_ERR_OK) {
+			warn("%s: file already exists on the filesystem", newpath);
+			return -2;
+		}
+	}
+
 	if (verbose_mode)
-		printf("%s\n", pathname);
+		printf("%s\n", newpath);
 
 	/* Create directory for the file */
-	if (!(dirname = strdup(pathname)))
-		return -2;
+	if (!(dirname = strdup(newpath)))
+		return -3;
 	if ((p = strrchr(dirname, '/'))) {
 		*p = 0;
 		if ((res = make_dir(lfs, dirname)))
-			res = -3;
+			res = -4;
 	}
 	free(dirname);
 
 	/* Create the file */
 	if ((fd = open_file(pathname, true)) >= 0) {
-		res = lfs_file_open(lfs, &file, pathname, LFS_O_WRONLY | LFS_O_CREAT);
+		res = lfs_file_open(lfs, &file, newpath, LFS_O_WRONLY | LFS_O_CREAT);
 		if (res == LFS_ERR_OK) {
 			if ((buf = calloc(1, COPY_BUF_SIZE))) {
 				while ((len = read(fd, buf, COPY_BUF_SIZE)) > 0) {
 					if (lfs_file_write(lfs, &file, buf, len) < len) {
-						res = -7;
+						res = -8;
 						break;
 					}
 				}
 				free(buf);
 			} else {
-				res = -6;
+				res = -7;
 			}
 			lfs_file_close(lfs, &file);
 		} else {
-			res =-5;
+			res =-6;
 		}
 		close(fd);
 	}
 	else {
-		res = -4;
+		res = -5;
 	}
 
 	return res;
 }
 
 
-int copy_dir_in(lfs_t *lfs, const char *dirname)
+int copy_dir_in(lfs_t *lfs, const char *dirname, bool overwrite)
 {
 	DIR *dir;
 	struct dirent *e;
@@ -323,8 +356,8 @@ int copy_dir_in(lfs_t *lfs, const char *dirname)
 	char separator[2] = "/";
 	char fullname[PATH_MAX + 1];
 	size_t dirname_len;
-	int res;
-	int count = 0;
+	int res = 0;
+
 
 //	printf("copy_dir_in(%p,'%s')\n", lfs, dirname);
 
@@ -336,7 +369,7 @@ int copy_dir_in(lfs_t *lfs, const char *dirname)
 
 	/* Read directory entries */
 	if (!(dir = opendir(dirname))) {
-		warn("failed to open directory: %s", dirname);
+		warn("%s: failed to open directory", dirname);
 		return -1;
 	}
 	while ((e = readdir(dir))) {
@@ -352,32 +385,36 @@ int copy_dir_in(lfs_t *lfs, const char *dirname)
 
 		if (lstat(fullname, &st)) {
 			warn("cannot stat file: %s", fullname);
+			res = -2;
+			break;
 		} else {
 			if (S_ISREG(st.st_mode)) {
-				if ((res = copy_file_in(lfs, fullname))) {
-					warn("failed to copy file: %s (%d)", fullname, res);
-				} else {
-					count++;
+				if ((res = copy_file_in(lfs, fullname, overwrite))) {
+					warn("%s: failed to copy file (%d)", fullname, res);
+					res = -3;
+					break;
 				}
 			}
 			else if (S_ISDIR(st.st_mode)) {
-				if ((res = copy_dir_in(lfs, fullname)) > 0)
-					count += res;
+				if ((res = copy_dir_in(lfs, fullname, overwrite))) {
+					res = -4;
+					break;
+				}
 			}
 			else {
-				warn("skip special file: %s", fullname);
+				warn("%s: skip special file", fullname);
 			}
 		}
 	}
 	closedir(dir);
 
-	return count;
+	return res;
 }
 
 int littlefs_add(lfs_t *lfs, param_t *params, bool overwrite)
 {
 	struct stat st;
-	int count = 0;
+	int res = 0;
 
 	if (params) {
 		param_t *p = params;
@@ -386,29 +423,143 @@ int littlefs_add(lfs_t *lfs, param_t *params, bool overwrite)
 				warn("cannot stat file: %s", p->name);
 			} else {
 				if (S_ISREG(st.st_mode)) {
-					if (copy_file_in(lfs, p->name)) {
-						warn("failed to copy file: %s", p->name);
-					} else {
-						count++;
+					if ((res = copy_file_in(lfs, p->name, overwrite))) {
+						warn("%s: failed to copy file (%d)", p->name, res);
+						break;
 					}
 				}
 				else if (S_ISDIR(st.st_mode)) {
-					count += copy_dir_in(lfs, p->name);
+					if ((res = copy_dir_in(lfs, p->name, overwrite))) {
+						break;
+					}
 				}
 				else {
-					warn("skip special file: %s", p->name);
+					warn("%s: skip special file", p->name);
 				}
 			}
 			p = p->next;
 		}
 	}
-
-	if (count < 1) {
+	else {
 		warn("no files added to filesystem");
-		return 1;
+		res = -42;
 	}
 
-	return 0;
+	return res;
+}
+
+
+
+int delete_dir(lfs_t *lfs, const char *pathname)
+{
+	struct lfs_info st;
+	lfs_dir_t dir;
+	char separator[2] = "/";
+	char fullname[LFS_NAME_MAX * 2];
+	size_t path_len;
+	int res = 0;
+
+//	printf("delete_dir(%p,'%s')\n", lfs, pathname);
+
+	if (lfs_stat(lfs, pathname, &st) != LFS_ERR_OK)
+		return -1;
+	if (st.type != LFS_TYPE_DIR)
+		return -2;
+
+	/* Check if path ends with "/" ... */
+	path_len = strnlen(pathname, LFS_NAME_MAX);
+	if (path_len > 0) {
+		if (pathname[path_len - 1] == '/')
+			separator[0] = 0;
+	}
+
+	/* Read and delete entries in the directory */
+	if (lfs_dir_open(lfs, &dir, pathname) != LFS_ERR_OK)
+		return -3;
+	while (lfs_dir_read(lfs, &dir, &st) > 0) {
+		/* Skip special directories ("." and "..") */
+		if (st.name[0] == '.') {
+			if (st.name[1] == 0)
+				continue;
+			if (st.name[1] == '.' && st.name[2] == 0)
+				continue;
+		}
+
+		snprintf(fullname, sizeof(fullname), "%s%s%s", pathname, separator, st.name);
+		fullname[LFS_NAME_MAX] = 0;
+
+		if (st.type == LFS_TYPE_DIR) {
+			if ((res = delete_dir(lfs, fullname))) {
+				warn("%s: failed to remove subdirectory (%s)", fullname, res);
+				res = 1;
+				break;
+			}
+		} else {
+			if ((res = lfs_remove(lfs, fullname)) != LFS_ERR_OK) {
+				warn("%s: failed to remove file (%s):", fullname, res);
+				res = 1;
+				break;
+			}
+		}
+		if (verbose_mode)
+			printf("%s\n", fullname);
+	}
+	lfs_dir_close(lfs, &dir);
+
+	if (res == 0) {
+		res = lfs_remove(lfs, pathname);
+	}
+
+	return res;
+}
+
+
+int littlefs_del(lfs_t *lfs, param_t *params, bool overwrite)
+{
+	struct lfs_info st;
+	int res = 0;
+
+	if (params) {
+		param_t *p = params;
+		while (p) {
+			if (lfs_stat(lfs,p->name, &st) == LFS_ERR_OK) {
+				p->found = true;
+				if (st.type == LFS_TYPE_DIR) {
+					if ((res = delete_dir(lfs, p->name))) {
+						warn("%s: failed to remove directory (%d)", p->name, res);
+						res = 1;
+						break;
+					}
+				}
+				else {
+					if ((res = lfs_remove(lfs, p->name)) != LFS_ERR_OK) {
+						warn("%s: failed to remove file (%d)", p->name, res);
+						res = 1;
+						break;
+					}
+				}
+				if (verbose_mode)
+					printf("%s\n", p->name);
+
+			}
+			p = p->next;
+		}
+
+		p = params;
+		while (p) {
+			if (!p->found) {
+				warn("%s: not found in the filesystem", p->name);
+				res = 2;
+			}
+			p = p->next;
+		}
+	}
+	else {
+		warn("no files to delete from filesystem");
+		res = -42;
+	}
+
+	return res;
 }
 
 
@@ -577,20 +728,14 @@ int main(int argc, char **argv)
 {
 	struct lfs_context *ctx;
 	param_t *params = NULL;
+	void *image_buf = NULL;
 	lfs_t lfs;
 	int fd = -1;
 	int ret = 0;
 	int res;
 
+
 	parse_arguments(argc, argv);
-
-#if 0
-	printf("image file: %s\n", image_file);
-	printf("block-size: %u\n", block_size);
-	printf("size: %u\n", image_size);
-	printf("offset: %u\n", image_offset);
-#endif
-
 
 	/* Open image file */
 	if (!file_exists(image_file)) {
@@ -610,7 +755,7 @@ int main(int argc, char **argv)
 			off_t sz = file_size(fd);
 			if (sz < 0)
 				fatal("cannot determine file size: %s", image_file);
-			if (sz < image_offset + image_size) {
+			if (direct_mode && sz < image_offset + image_size) {
 				if ((res = file_set_zero(fd, image_offset, image_size)))
 					fatal("failed to zero-out lfs image");
 			}
@@ -623,19 +768,45 @@ int main(int argc, char **argv)
 			fatal("cannot change directory to: %s", directory);
 	}
 
-	/* Initialize lfs library */
-	if (!(ctx = lfs_init_file(fd, image_offset, image_size, block_size)))
+	/* Initialize LittleFS library */
+	if (direct_mode) {
+		ctx = lfs_init_file(fd, image_offset, image_size, block_size);
+	} else {
+		if (image_size == 0) {
+			/* Detect existing LittleFS Size */
+			if (!(ctx = lfs_init_file(fd, image_offset, 0, block_size)))
+				fatal("failed to initialize LittleFS");
+			if ((res = lfs_mount(&lfs, &ctx->cfg)) != LFS_ERR_OK)
+				fatal("%s: failed to mount LittleFS (%d)", image_file, res);
+			image_size = lfs.block_count * block_size;
+			if (verbose_mode)
+				printf("%s: detected filesystem size: %u\n", image_file, image_size);
+			if ((res = lfs_unmount(&lfs)) != LFS_ERR_OK)
+				fatal("%s: failed to unmount LittleFS (%d)", image_file, res);
+			lfs_destroy_context(ctx);
+		}
+		if (!(image_buf = calloc(1, image_size)))
+			fatal("out of memory");
+		if (command != LFS_CREATE) {
+			if (lseek(fd, image_offset, SEEK_SET) < 0)
+				fatal("%s: seek failed (%d)", image_file, errno);
+			if ((res = read_file(fd, image_buf, image_size)))
+				fatal("%s: failed to read image from file (%d)", image_file, errno);
+		}
+		ctx = lfs_init_mem(image_buf, image_size, block_size);
+	}
+	if (!ctx)
 		fatal("failed to initialize LittleFS");
 
 	if (command == LFS_CREATE) {
 		/* Make new filesystem */
 		if ((res = lfs_format(&lfs, &ctx->cfg)) != LFS_ERR_OK)
-			fatal("failed to create (format) a new LittleFS filesystem: %d", res);
+			fatal("%s: failed to create a new LittleFS filesystem: %d", image_file, res);
 	}
 
 	/* Mount LittleFS */
 	if ((res = lfs_mount(&lfs, &ctx->cfg)) != LFS_ERR_OK)
-		fatal("failed to mount LittleFS: %d", res);
+		fatal("%s: failed to mount LittleFS (%d)", image_file, res);
 
 	if (verbose_mode) {
 		lfs_size_t used_blocks = lfs_fs_size(&lfs);
@@ -650,30 +821,62 @@ int main(int argc, char **argv)
 	}
 
 
-	/* Parse parameters to command */
+	/* Parse command parameters */
 	bool filecheck = (command == LFS_CREATE || command == LFS_UPDATE) ? true : false;
-	if ((res = parse_params(argc, argv, optind, &params, filecheck)))
+	if ((res = parse_params(argc, argv, optind, &params, filecheck))) {
 		warn("failed to parse all parameters: %d", res);
+		ret = 2;
+	}
 
 
-	if (command == LFS_LIST) {
-		if (littlefs_list_dir(&lfs, "./", true, params) > 0)
+	/* Process command */
+	switch (command) {
+
+	case LFS_LIST:
+		if (littlefs_list(&lfs, "./", true, params) > 0)
 			ret = 1;
-	}
-	else if (command == LFS_CREATE || command == LFS_UPDATE) {
-		ret = littlefs_add(&lfs, params, true);
-	}
-	else {
-		fatal("unknown command");
+		param_t *p = params;
+		while (p) {
+			if (!p->found) {
+				warn("%s: not found in the filesystem", p->name);
+				ret = 2;
+			}
+			p = p->next;
+		}
+		break;
+
+	case LFS_CREATE:
+	case LFS_UPDATE:
+		if (littlefs_add(&lfs, params, true))
+			ret = 1;
+		break;
+
+	case LFS_DELETE:
+		if (littlefs_del(&lfs, params, overwrite_mode))
+			ret = 1;
+		break;
+
+	default:
+		fatal("internal error");
+
 	}
 
 
 	/* Unmount LittleFS */
 	if ((res = lfs_unmount(&lfs)) != LFS_ERR_OK)
-		fatal("Failed to unmount LittleFD: %d", res);
+		fatal("%s: failed to unmount LittleFS (%d)", image_file, res);
+
+	if (!direct_mode && command != LFS_LIST) {
+		/* Write image from memory to the image file */
+		if (lseek(fd, image_offset, SEEK_SET) < 0)
+			fatal("%s: seek failed (%d)", image_file, errno);
+		if ((res = write_file(fd, image_buf, image_size)))
+			fatal("%s: failed to write image to file (%d)", image_file, errno);
+	}
 
 	if (fd >= 0)
 		close(fd);
+	lfs_destroy_context(ctx);
 
 	return ret;
 }
