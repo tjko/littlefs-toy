@@ -64,8 +64,8 @@ static const struct option long_options[] = {
 	{ "help",		0, NULL,		'h' },
 	{ "verbose",		0, NULL,		'v' },
 	{ "version",		0, NULL,		'V' },
-	{ "overwrite",          0, &overwrite_mode,     1 },
-	{ "direct",             0, &direct_mode,        1 },
+	{ "overwrite",          0, NULL,                'O' },
+	{ "direct",             0, &direct_mode,         1 },
 	{ NULL, 0, NULL, 0 }
 };
 
@@ -128,6 +128,10 @@ int parse_params(int argc, char **argv, int start, param_t **list, bool filechec
 			prefix[0] = 0;
 		}
 		else {
+			if ((arg[0] == '.' || arg[0] == '/') && arg[1] == 0) {
+				arg = "./";
+				prefix[0] = 0;
+			}
 			if (arg[0] == '/')
 				prefix[1] = 0;
 			else if (arg[0] == '.' && arg[1] == '/')
@@ -160,7 +164,7 @@ bool match_param(const char *name, param_t *list)
 
 	param_t *p = list;
 	while (p) {
-		if (!strcmp(name, p->name)) {
+		if (!strcmp(p->name, "./") || !strcmp(name, p->name)) {
 			p->found = true;
 			return true;
 		}
@@ -171,7 +175,7 @@ bool match_param(const char *name, param_t *list)
 }
 
 
-int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params)
+int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params, bool match_all)
 {
 	lfs_dir_t dir;
 	struct lfs_info info;
@@ -210,7 +214,7 @@ int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params)
 		snprintf(fullname, sizeof(fullname), "%s%s%s", path, separator, info.name);
 		fullname[LFS_NAME_MAX] = 0;
 
-		if (params) {
+		if (params && !match_all) {
 			if (!match_param(fullname, params))
 				skip = true;
 		}
@@ -228,7 +232,7 @@ int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params)
 		}
 
 		if (info.type == LFS_TYPE_DIR && recursive) {
-			littlefs_list(lfs, fullname, recursive, params);
+			littlefs_list(lfs, fullname, recursive, params, !skip);
 		}
 	}
 
@@ -514,7 +518,7 @@ int delete_dir(lfs_t *lfs, const char *pathname)
 }
 
 
-int littlefs_del(lfs_t *lfs, param_t *params, bool overwrite)
+int littlefs_del(lfs_t *lfs, param_t *params)
 {
 	struct lfs_info st;
 	int res = 0;
@@ -582,25 +586,30 @@ void print_version()
 
 void print_usage()
 {
-#if 0
 	fprintf(stderr, "%s v%s%s %s\n\n", PROGRAMNAME,
 		LITTLEFS_TOY_VERSION, BUILD_TAG, copyright);
-#endif
 
 	fprintf(stderr, "Usage: lfs {command} [options] [(file) | (pattern) ...]\n\n"
 		" Commands:\n"
-		"  -c, --create    Create (format) lfs image and add files\n"
-		"  -r, --append    Append (add) files to existing lfs image\n"
-		"  -d, --delete    Remove files from lfs image\n"
-		"  -t, --list      List contents of lfs image\n\n"
+		"  -c, --create               Create (format) LFS image and add files\n"
+		"  -r, --append               Append (add) files to existing LFS image\n"
+		"  -d, --delete               Remove files from existing LFS image\n"
+		"  -t, --list                 List contents of existing LFS image\n\n"
 		" Options:\n"
-		" -f <imagefile>, --file=<imagefile>       lfs image file\n"
-		" -b <blocksize>, --block-size=<blocksize> lfs block size\n"
-		" -h, --help                               display usage information and exit\n"
-		" -v, --verbose                            enable verbose mode\n"
-		" -V, --version                            display program version\n"
-		" --overwrite                              overwrite image file\n"
-		"\n\n");
+		" -f <imagefile>, --file=<imagefile>\n"
+                "                             Specify LFS image file location\n"
+		" -b <blocksize>, --block-size=<blocksize>\n"
+		"                             LFS filesystem blocksize (default: %d)\n"
+		" -s <imagesize>, --size=<imagesize>\n"
+		"                             LFS filesystem size (required with -c)\n"
+		" -o <imageoffset>, --offset=<imageoffset>\n"
+                "                             LFS filesystem start offset (default: 0)\n"
+		" -h, --help                  Display usage information and exit\n"
+		" -v, --verbose               Enable verbose mode\n"
+		" -V, --version               Display program version\n"
+		" -O, --overwrite             Overwrite image file (if it exists already)\n"
+		" --direct                    Write to image file directly (use less memory)\n"
+		"\n\n", 4096);
 }
 
 
@@ -631,7 +640,7 @@ int parse_arguments(int argc, char **argv)
 
 	while (1) {
 		opt_index = 0;
-		if ((c = getopt_long(argc, argv, "crdtf:b:s:o:C:hvV",
+		if ((c = getopt_long(argc, argv, "crdtf:b:s:o:C:hvVO",
 						long_options, &opt_index)) == -1)
 			break;
 
@@ -697,27 +706,29 @@ int parse_arguments(int argc, char **argv)
 			print_version();
 			exit(0);
 
+		case 'O':
+			overwrite_mode = 1;
+			break;
+
 		case '?':
+			fprintf(stderr, "Try '%s --help' for more information.\n", PROGRAMNAME);
 			exit(1);
 		}
 	}
 
 
 	if (command == LFS_NONE) {
-		fprintf(stderr, "no command specified\n\n");
-		print_usage();
+		warn("no command specified");
+		fprintf(stderr, "Try '%s --help' for more information.\n", PROGRAMNAME);
 		exit(1);
 	}
 
-	if (!image_file) {
-		fprintf(stderr, "no image file (-f <filename>) specified\n\n");
-		print_usage();
-		exit(1);
-	}
+	if (!image_file)
+		fatal("no image file (-f <filename>) specified");
 
 	if (command == LFS_CREATE) {
 		if (image_size < 1)
-			fatal("image size (-s <imagesize>) must be specified to create a new image");
+			fatal("image size (-s <imagesize>) must be set when creating a new image");
 	}
 
 	return optind;
@@ -779,8 +790,8 @@ int main(int argc, char **argv)
 			if ((res = lfs_mount(&lfs, &ctx->cfg)) != LFS_ERR_OK)
 				fatal("%s: failed to mount LittleFS (%d)", image_file, res);
 			image_size = lfs.block_count * block_size;
-			if (verbose_mode)
-				printf("%s: detected filesystem size: %u\n", image_file, image_size);
+			if (verbose_mode > 1)
+				printf("%s: detected filesystem size: %u bytes\n", image_file, image_size);
 			if ((res = lfs_unmount(&lfs)) != LFS_ERR_OK)
 				fatal("%s: failed to unmount LittleFS (%d)", image_file, res);
 			lfs_destroy_context(ctx);
@@ -808,7 +819,7 @@ int main(int argc, char **argv)
 	if ((res = lfs_mount(&lfs, &ctx->cfg)) != LFS_ERR_OK)
 		fatal("%s: failed to mount LittleFS (%d)", image_file, res);
 
-	if (verbose_mode) {
+	if (verbose_mode > 1) {
 		lfs_size_t used_blocks = lfs_fs_size(&lfs);
 
 		printf("Filesystem size: %10u bytes (%u blocks)\n", block_size * lfs.block_count,
@@ -833,7 +844,7 @@ int main(int argc, char **argv)
 	switch (command) {
 
 	case LFS_LIST:
-		if (littlefs_list(&lfs, "./", true, params) > 0)
+		if (littlefs_list(&lfs, "./", true, params, false) > 0)
 			ret = 1;
 		param_t *p = params;
 		while (p) {
@@ -852,7 +863,7 @@ int main(int argc, char **argv)
 		break;
 
 	case LFS_DELETE:
-		if (littlefs_del(&lfs, params, overwrite_mode))
+		if (littlefs_del(&lfs, params))
 			ret = 1;
 		break;
 

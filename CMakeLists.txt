@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.20)
 
 
 project(littlefs-toy
-	VERSION 0.1.0
+	VERSION 1.0.0
 	DESCRIPTION "littlefs-toy - A tool for creating and modifying LittleFS images."
 	HOMEPAGE_URL https://github.com/tjko/littlefs-toy/
 	LANGUAGES C
@@ -71,12 +71,14 @@ target_link_libraries(lfs PRIVATE
 
 target_compile_options(lfs PRIVATE
   -Wall
+  -Wextra
   -fstack-protector-all
-  -DHAVE_CONFIG_H
   -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=
 )
 
 target_compile_definitions(lfs PRIVATE
+  HAVE_CONFIG_H
+  LFS_DEFINES=lfs_opts.h
   LFS_THREADSAFE
   LFS_NO_DEBUG
   LFS_NO_WARN

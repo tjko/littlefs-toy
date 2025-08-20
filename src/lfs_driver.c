@@ -104,7 +104,7 @@ static int block_device_prog(const struct lfs_config *c, lfs_block_t block,
 	return LFS_ERR_OK;
 }
 
-static int block_device_erase(const struct lfs_config *c, lfs_block_t block)
+static int block_device_erase(const struct lfs_config *, lfs_block_t)
 {
 	return LFS_ERR_OK;
 }
@@ -227,7 +227,7 @@ struct lfs_context* lfs_init_file(int fd, size_t offset, size_t size, size_t blo
 		LFS_ERROR("failed to stat file");
 		return NULL;
 	}
-	if (offset + size > st.st_size) {
+	if ((off_t)(offset + size) > st.st_size) {
 		LFS_ERROR("file too small");
 		return NULL;
 	}
