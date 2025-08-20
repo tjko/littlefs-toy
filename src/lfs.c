@@ -565,8 +565,7 @@ int littlefs_mount(struct lfs_context *ctx, lfs_t *lfs)
 {
 	lfs_size_t new_block_size = 0;
 	int res = 0;
-	const char *msg;
-	char *tmp, *s;
+	char *msg;
 
 
 	if (!ctx || !lfs)
@@ -579,14 +578,14 @@ int littlefs_mount(struct lfs_context *ctx, lfs_t *lfs)
 	warn_mode(true);
 
 	/* I mount failed, check if blocksize was incorrect */
-	msg = warn_last_msg();
-	if (strstr(msg, "Invalid block size (")) {
-		if ((s = strrchr(msg, '('))) {
-			if ((tmp = strdup(s + 1))) {
-				if ((s = strchr(tmp, ' ')))
-					*s = 0;
-				new_block_size = atoi(tmp);
-				free(tmp);
+	if ((msg = strdup(warn_last_msg()))) {
+		if (strstr(msg, "Invalid block size (")) {
+			char *s, *e;
+			if ((s = strrchr(msg, '('))) {
+				s++;
+				if ((e = strchr(s, ' ')))
+					*e = 0;
+				new_block_size = atoi(s);
 			}
 		}
 	}
@@ -599,9 +598,11 @@ int littlefs_mount(struct lfs_context *ctx, lfs_t *lfs)
 		res = lfs_mount(lfs, &ctx->cfg);
 	}
 	else {
-		if (strlen(msg) > 0)
+		if (msg && strlen(msg) > 0)
 			warn(msg);
 	}
+	if (msg)
+		free(msg);
 
 	return res;
 }
