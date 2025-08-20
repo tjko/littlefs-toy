@@ -43,6 +43,7 @@ struct lfs_context {
 
 struct lfs_context* lfs_init_mem(void *base, size_t size, size_t blocksize);
 struct lfs_context* lfs_init_file(int fd, size_t offset, size_t size, size_t blocksize);
+int lfs_change_blocksize(struct lfs_context *ctx, size_t size, size_t blocksize);
 void lfs_destroy_context(struct lfs_context *ctx);
 
 

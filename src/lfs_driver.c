@@ -175,15 +175,11 @@ static void init_lfs_config(struct lfs_config *cfg, size_t blocksize, size_t blo
 
 struct lfs_context* lfs_init_mem(void *base, size_t size, size_t blocksize)
 {
-	if (!base || size < 1 || blocksize < 1)
+	if (!base || blocksize < 1)
 		return NULL;
 
 	if (size % blocksize != 0) {
 		LFS_ERROR("image size not multiple of blocksize");
-		return NULL;
-	}
-	if (size < blocksize) {
-		LFS_ERROR("image smaller than blocksize");
 		return NULL;
 	}
 
@@ -213,10 +209,6 @@ struct lfs_context* lfs_init_file(int fd, size_t offset, size_t size, size_t blo
 		return NULL;
 	}
 
-	if (offset % blocksize != 0) {
-		LFS_ERROR("offset not multiple of blocksize");
-		return NULL;
-	}
 	if (size % blocksize != 0) {
 		LFS_ERROR("image size not multiple of blocksize");
 		return NULL;
@@ -245,6 +237,23 @@ struct lfs_context* lfs_init_file(int fd, size_t offset, size_t size, size_t blo
 	init_lfs_config(&ctx->cfg, blocksize, size / blocksize, ctx);
 
 	return ctx;
+}
+
+int lfs_change_blocksize(struct lfs_context *ctx, size_t size, size_t blocksize)
+{
+	if (!ctx || blocksize < 1)
+		return -1;
+
+	if (size % blocksize != 0) {
+		LFS_ERROR("image size not multiple of blocksize");
+		return -2;
+	}
+
+	ctx->cfg.prog_size = blocksize;
+	ctx->cfg.block_size = blocksize;
+	ctx->cfg.cache_size = blocksize;
+
+	return 0;
 }
 
 void lfs_destroy_context(struct lfs_context *ctx)

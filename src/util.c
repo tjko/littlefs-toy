@@ -5,20 +5,20 @@
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * This file is part of JPEGoptim.
+ * This file is part of LittleFS-Toy.
  *
- * JPEGoptim is free software: you can redistribute it and/or modify
+ * LittleFS-Toy is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * JPEGoptim is distributed in the hope that it will be useful,
+ * LittleFS-Toy is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with JPEGoptim. If not, see <https://www.gnu.org/licenses/>.
+ * along with LittleFS-Toy. If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -119,10 +119,16 @@ int open_file(const char *name, bool readonly)
 }
 
 
-int read_file(int fd, void *buf, size_t size)
+int read_file(int fd, off_t offset, void *buf, size_t size)
 {
 	size_t bytes_read = 0;
 	ssize_t len;
+
+
+	if (offset >= 0) {
+		if (lseek(fd, offset, SEEK_SET) < 0)
+			return -2;
+	}
 
 	do {
 		len = read(fd, buf + bytes_read, (size - bytes_read));
@@ -134,10 +140,16 @@ int read_file(int fd, void *buf, size_t size)
 }
 
 
-int write_file(int fd, void *buf, size_t size)
+int write_file(int fd, off_t offset, void *buf, size_t size)
 {
 	size_t bytes_written = 0;
 	ssize_t len;
+
+
+	if (offset >= 0) {
+		if (lseek(fd, offset, SEEK_SET) < 0)
+			return -2;
+	}
 
 	do {
 		len = write(fd, buf + bytes_written, (size - bytes_written));
@@ -241,9 +253,14 @@ void warn(const char *format, ...)
 	}
 }
 
-const char* last_warning()
+const char* warn_last_msg()
 {
 	return last_warn;
+}
+
+void warn_clear_last_msg()
+{
+	last_warn[0] = 0;
 }
 
 void warn_mode(bool enable)

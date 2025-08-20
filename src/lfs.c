@@ -69,7 +69,7 @@ static const struct option long_options[] = {
 	{ NULL, 0, NULL, 0 }
 };
 
-static const char *copyright = "Copyright (C) 2025 Timo Kokkonen.";
+static const char *copyright = "Copyright (C) 2025 Timo Kokkonen";
 
 typedef struct param_t {
 	const char *name;
@@ -249,7 +249,6 @@ int make_dir(lfs_t *lfs, const char *pathname)
 	char *path, *tok, *saveptr;
 	int res = 0;
 
-//	printf("make_dir(%p,'%s')\n", lfs, pathname);
 
 	if (!lfs || !pathname)
 		return -1;
@@ -295,8 +294,6 @@ int copy_file_in(lfs_t *lfs, const char *pathname, bool overwrite)
 	void *buf;
 	ssize_t len;
 
-
-//	printf("copy_file_in(%p,'%s')\n", lfs, pathname);
 
 	if (!lfs || !pathname)
 		return -1;
@@ -362,8 +359,6 @@ int copy_dir_in(lfs_t *lfs, const char *dirname, bool overwrite)
 	size_t dirname_len;
 	int res = 0;
 
-
-//	printf("copy_dir_in(%p,'%s')\n", lfs, dirname);
 
 	/* Check if path ends with "/" ... */
 	if ((dirname_len = strnlen(dirname, NAME_MAX)) > 0) {
@@ -463,7 +458,6 @@ int delete_dir(lfs_t *lfs, const char *pathname)
 	size_t path_len;
 	int res = 0;
 
-//	printf("delete_dir(%p,'%s')\n", lfs, pathname);
 
 	if (lfs_stat(lfs, pathname, &st) != LFS_ERR_OK)
 		return -1;
@@ -566,6 +560,51 @@ int littlefs_del(lfs_t *lfs, param_t *params)
 	return res;
 }
 
+
+int littlefs_mount(struct lfs_context *ctx, lfs_t *lfs)
+{
+	lfs_size_t new_block_size = 0;
+	int res = 0;
+	const char *msg;
+	char *tmp, *s;
+
+
+	if (!ctx || !lfs)
+		return -1;
+
+	warn_clear_last_msg();
+	warn_mode(false);
+	if ((res = lfs_mount(lfs, &ctx->cfg)) == LFS_ERR_OK)
+		return 0;
+	warn_mode(true);
+
+	/* I mount failed, check if blocksize was incorrect */
+	msg = warn_last_msg();
+	if (strstr(msg, "Invalid block size (")) {
+		if ((s = strrchr(msg, '('))) {
+			if ((tmp = strdup(s + 1))) {
+				if ((s = strchr(tmp, ' ')))
+					*s = 0;
+				new_block_size = atoi(tmp);
+				free(tmp);
+			}
+		}
+	}
+
+	if (new_block_size >= 128 && new_block_size <= 65536) {
+		warn("warning: filesystem blocksize is %u (and not %u)",
+			new_block_size, block_size);
+		block_size = new_block_size;
+		lfs_change_blocksize(ctx, image_size, block_size);
+		res = lfs_mount(lfs, &ctx->cfg);
+	}
+	else {
+		if (strlen(msg) > 0)
+			warn(msg);
+	}
+
+	return res;
+}
 
 
 void print_version()
@@ -783,25 +822,19 @@ int main(int argc, char **argv)
 	if (direct_mode) {
 		ctx = lfs_init_file(fd, image_offset, image_size, block_size);
 	} else {
-		if (image_size == 0) {
-			/* Detect existing LittleFS Size */
-			if (!(ctx = lfs_init_file(fd, image_offset, 0, block_size)))
-				fatal("failed to initialize LittleFS");
-			if ((res = lfs_mount(&lfs, &ctx->cfg)) != LFS_ERR_OK)
-				fatal("%s: failed to mount LittleFS (%d)", image_file, res);
-			image_size = lfs.block_count * block_size;
-			if (verbose_mode > 1)
-				printf("%s: detected filesystem size: %u bytes\n", image_file, image_size);
-			if ((res = lfs_unmount(&lfs)) != LFS_ERR_OK)
-				fatal("%s: failed to unmount LittleFS (%d)", image_file, res);
-			lfs_destroy_context(ctx);
+		ssize_t bufsize = image_size;
+
+		if (bufsize == 0) {
+			if ((bufsize = file_size(fd)) < 0)
+				fatal("%s: cannot get file image file size", image_file);
+			bufsize -= image_offset;
+			if (bufsize < 0)
+				fatal("invalid offset: %ld", image_offset);
 		}
-		if (!(image_buf = calloc(1, image_size)))
+		if (!(image_buf = calloc(1, bufsize)))
 			fatal("out of memory");
 		if (command != LFS_CREATE) {
-			if (lseek(fd, image_offset, SEEK_SET) < 0)
-				fatal("%s: seek failed (%d)", image_file, errno);
-			if ((res = read_file(fd, image_buf, image_size)))
+			if ((res = read_file(fd, image_offset, image_buf, bufsize)))
 				fatal("%s: failed to read image from file (%d)", image_file, errno);
 		}
 		ctx = lfs_init_mem(image_buf, image_size, block_size);
@@ -816,8 +849,23 @@ int main(int argc, char **argv)
 	}
 
 	/* Mount LittleFS */
+#if 0
+	block_size = 512;
+	lfs_change_blocksize(ctx, image_size, block_size);
 	if ((res = lfs_mount(&lfs, &ctx->cfg)) != LFS_ERR_OK)
 		fatal("%s: failed to mount LittleFS (%d)", image_file, res);
+#endif
+	if ((res = littlefs_mount(ctx, &lfs)))
+		fatal("%s: failed to mount LittleFS (%d)", image_file, res);
+
+	if (image_size == 0) {
+		image_size = block_size * lfs.block_count;
+	} else {
+		uint32_t new_size = block_size * lfs.block_count;
+		if (image_size != new_size)
+			warn("specified image size does not match filesystem: %u vs %u",
+				image_size, new_size);
+	}
 
 	if (verbose_mode > 1) {
 		lfs_size_t used_blocks = lfs_fs_size(&lfs);
@@ -830,6 +878,7 @@ int main(int argc, char **argv)
 			block_size * (lfs.block_count - used_blocks), lfs.block_count - used_blocks);
 		printf("      blocksize: %10u bytes\n\n", block_size);
 	}
+
 
 
 	/* Parse command parameters */
@@ -879,9 +928,7 @@ int main(int argc, char **argv)
 
 	if (!direct_mode && command != LFS_LIST) {
 		/* Write image from memory to the image file */
-		if (lseek(fd, image_offset, SEEK_SET) < 0)
-			fatal("%s: seek failed (%d)", image_file, errno);
-		if ((res = write_file(fd, image_buf, image_size)))
+		if ((res = write_file(fd, image_offset, image_buf, image_size)))
 			fatal("%s: failed to write image to file (%d)", image_file, errno);
 	}
 
