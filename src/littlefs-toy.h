@@ -52,6 +52,7 @@ int file_exists(const char *pathname);
 int rename_file(const char *old_path, const char *new_path);
 void fatal(const char *format, ...);
 void warn(const char *format, ...);
-
+const char* last_warning();
+void warn_mode(bool enabled);
 
 #endif /* LITTLEFS_TOY_H */
