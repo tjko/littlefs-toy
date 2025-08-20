@@ -55,12 +55,13 @@ int file_set_zero(int fd, off_t offset, off_t size)
 
 		if ((curr_pos = lseek(fd, 0, SEEK_CUR)) < 0)
 			return -2;
-
-		if (!(buf = calloc(1, BUF_SIZE)))
+		if (lseek(fd, offset, SEEK_SET) < 0)
 			return -3;
+		if (!(buf = calloc(1, BUF_SIZE)))
+			return -4;
 
 		while (written < size) {
-			size_t len = ((size - written) > BUF_SIZE ? BUF_SIZE : (size - written));
+			ssize_t len = ((size - written) > BUF_SIZE ? BUF_SIZE : (size - written));
 			if (write(fd, buf, len) < len)
 				break;
 			written += len;
@@ -68,10 +69,10 @@ int file_set_zero(int fd, off_t offset, off_t size)
 		free(buf);
 
 		if (written < size)
-			return -4;
+			return -5;
 
 		if (lseek(fd, curr_pos, SEEK_SET) < 0)
-			return -5;
+			return -6;
 	}
 
 	return 0;

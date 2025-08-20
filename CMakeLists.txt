@@ -71,6 +71,7 @@ target_link_libraries(lfs PRIVATE
 
 target_compile_options(lfs PRIVATE
   -Wall
+  -Wextra
   -fstack-protector-all
   -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=
 )
