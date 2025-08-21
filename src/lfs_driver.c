@@ -104,8 +104,40 @@ static int block_device_prog(const struct lfs_config *c, lfs_block_t block,
 	return LFS_ERR_OK;
 }
 
-static int block_device_erase(const struct lfs_config *, lfs_block_t)
+static int block_device_erase(const struct lfs_config *c, lfs_block_t block)
 {
+	struct lfs_context *ctx = (struct lfs_context*)c->context;
+	static void *null_buf = NULL;
+	static lfs_size_t null_buf_size = 0;
+
+
+	if (block >= c->block_count) {
+		LFS_ERROR("attempt to erase past end of filesystem");
+		return LFS_ERR_IO;
+	}
+
+	if (ctx->fd >= 0) {
+		if (null_buf_size != c->block_size) {
+			if (null_buf)
+				free(null_buf);
+			if (!(null_buf = calloc(1, c->block_size)))
+				return LFS_ERR_NOMEM;
+			null_buf_size = c->block_size;
+		}
+		off_t f_offset = ctx->offset + (block * c->block_size);
+		if (lseek(ctx->fd, f_offset, SEEK_SET) < 0) {
+			LFS_ERROR("seek failed: %ld", f_offset);
+			return LFS_ERR_IO;
+		}
+		if (write(ctx->fd, null_buf, null_buf_size) < null_buf_size) {
+			LFS_ERROR("failed to write file");
+			return LFS_ERR_IO;
+		}
+	}
+	else {
+		memset(ctx->base + (block * c->block_size), 0, c->block_size);
+	}
+
 	return LFS_ERR_OK;
 }
 
