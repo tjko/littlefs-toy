@@ -1,16 +1,25 @@
 .TH LFS 1 "August 2025" "littlefs-toy" "User Commands"
 .SH NAME
 lfs \- tool for working with LittleFS images
+
 .SH SYNOPSIS
 .B lfs
-\fICOMMAND\fR [\fIOPTION\fR]... [\fIFILE\fR | \fIPATTERN\fR]...
+\fICOMMAND\fR -f \fIIMAGEFILE\f  [\fIOPTIONS\fR] [\fIFILE\fR | \fIPATTERN\fR ...]
+
 .SH DESCRIPTION
 .B lfs
 is a tool for creating and manipulating LittleFS images.
-LittleFS is a little fail-safe filesystem designed for microcontrollers and embedded systems.
+.B lfs
+operates similarly to
+.B tar
+command, except that it operates on LittleFS filesystem images instead.
 .PP
 The tool supports creating new LittleFS images, adding files to existing images,
 listing image contents, and removing files from images.
+.PP
+LittleFS is a little fail-safe filesystem designed for microcontrollers and embedded systems.
+.PP
+
 .SH COMMANDS
 .TP
 .BR \-c ", " \-\-create
@@ -25,23 +34,34 @@ Remove files from an existing LittleFS image.
 .TP
 .BR \-t ", " \-\-list
 List contents of an existing LittleFS image.
+
 .SH OPTIONS
+One or more options can be specified. Options that take size (in bytes)
+support using suffixes (K, M, G) to specity 1024 based units, while suffixes (k, m, g) are SI units.
+To specify size in hexadecimal use "0x" prefix.
 .TP
 .BR \-f " " \fIIMAGEFILE\fR ", " \-\-file=\fIIMAGEFILE\fR
-Specify the LittleFS image file location. This option is required.
+Specify the LittleFS image file location. This option is always required.
 .TP
 .BR \-b " " \fIBLOCKSIZE\fR ", " \-\-block-size=\fIBLOCKSIZE\fR
-Set the LittleFS filesystem blocksize in bytes (default: 4096).
-Must be between 128 and 2147483648.
+Set the LittleFS filesystem blocksize (default: 4096 or 4K). Typical blocksizes are
+between 128 and 32768 bytes.
+This option is required when creating a new filesystem image. It is normally not required
+when working on existing image (as blocksize is automatically detected if its not the default one).
 .TP
 .BR \-s " " \fIIMAGESIZE\fR ", " \-\-size=\fIIMAGESIZE\fR
-Set the LittleFS filesystem size in bytes. This option is required when creating a new image with \fB\-c\fR.
+Set the LittleFS filesystem size. This option is required when creating a new image with \fB\-c\fR.
+When working on existing image, filesystem (image) size is detected from filesystem superblock.
 .TP
 .BR \-o " " \fIIMAGEOFFSET\fR ", " \-\-offset=\fIIMAGEOFFSET\fR
 Set the LittleFS filesystem start offset in the image file (default: 0).
+This can be useful if working on firmware image that contains a LittleFS image inside the firmware
+image.
 .TP
 .BR \-C " " \fIDIRECTORY\fR ", " \-\-directory=\fIDIRECTORY\fR
-Change to the specified directory before processing files.
+Change to the specified directory before processing files. Image file is opened before
+this takes effect, so any files/patterns specified are processed relative to the new
+directory.
 .TP
 .BR \-h ", " \-\-help
 Display help information and exit.
@@ -59,47 +79,61 @@ Overwrite the image file if it already exists (when used with \fB\-c\fR).
 .BR \-\-direct
 Write to image file directly instead of using memory buffering.
 Uses less memory but may be slower.
+.TP
+.BR \-\-shrink
+Shrink (truncate) image file so that it ends where LittleFS filesystem ends.
+This option is only applicable when updating existing image file and re-creating smaller
+filesystem inside the file, etc.
+Without this option existing image file is never shrunk, even if there is space after end of
+the filesystem image.
+
 .SH EXAMPLES
 .PP
-Create a 1MB LittleFS image:
+Create a 1MB LittleFS image and add files to it:
 .RS
-.B lfs -c -f filesystem.lfs -s 1048576
+.B lfs -c -v -f filesystem.bin -s 1M file1.txt file2.txt
 .RE
 .PP
-Create a new image and add files to it:
+Create a new image and add all files from another to it:
 .RS
-.B lfs -c -f filesystem.lfs -s 1048576 file1.txt file2.txt
-.RE
-.PP
-List all files in an existing image:
-.RS
-.B lfs -t -f filesystem.lfs
-.RE
-.PP
-List specific files in an image:
-.RS
-.B lfs -t -f filesystem.lfs config.txt data/
-.RE
-.PP
-Add files to an existing image:
-.RS
-.B lfs -r -f filesystem.lfs newfile.txt docs/
-.RE
-.PP
-Remove files from an image:
-.RS
-.B lfs -d -f filesystem.lfs oldfile.txt temp/
+.B lfs -c -v -f filesystem.bin -s 512K -C /tmp/image .
 .RE
 .PP
 Create image with custom block size:
 .RS
-.B lfs -c -f filesystem.lfs -s 2097152 -b 8192
+.B lfs -c -f filesystem.bin -s 2048K -b 1K config.txt data/
+.RE
+.PP
+List all files in an existing image:
+.RS
+.B lfs -t -v -f filesystem.bin
+.RE
+.PP
+List specific files in an image:
+.RS
+.B lfs -tvf filesystem.bin config.txt data/
+.RE
+.PP
+Add files to an existing image:
+.RS
+.B lfs -r -v -f filesystem.bin newfile.txt docs/
+.RE
+.PP
+Remove files from an image:
+.RS
+.B lfs -d -v -f filesystem.bin oldfile.txt temp/
 .RE
 .PP
 Add files from a different directory:
 .RS
-.B lfs -r -f filesystem.lfs -C /home/user/data .
+.B lfs -r -v -f filesystem.bin -C /home/user/data .
 .RE
+.PP
+Add files to existing image that is stored inside and firmware image file (at given offset):
+.RS
+.B lfs -r -v -f firmware.bin -o 0x1c0000 newfile.txt
+.RE
+
 .SH FILES
 .TP
 .I ~/.lfsrc
@@ -112,12 +146,12 @@ System-wide configuration file (not currently implemented).
 exits with status 0 on success, and >0 if an error occurs.
 .SH SEE ALSO
 .BR tar (1),
-.BR dd (1)
+.BR picotool (1)
 .PP
 LittleFS specification and documentation:
 .I https://github.com/littlefs-project/littlefs
 .SH AUTHOR
-Written by Timo Kokkonen.
+Written by Timo Kokkonen <tjko@iki.fi>.
 .SH COPYRIGHT
 Copyright \(co 2025 Timo Kokkonen.
 License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
@@ -125,6 +159,5 @@ License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
 This is free software: you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law.
 .SH BUGS
-Report bugs to: <tjko@iki.fi>
+Report bugs to: <https://github.com/tjko/littlefs-toy/issues>
 .br
-Project home page: <https://github.com/tjko/littlefs-toy>
