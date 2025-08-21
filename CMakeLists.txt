@@ -88,6 +88,6 @@ target_compile_definitions(lfs PRIVATE
 
 
 install(TARGETS lfs)
-install(FILES lfs.1 TYPE MAN)
+install(FILES man/lfs.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 install(FILES README.md LICENSE TYPE DOC)
 
