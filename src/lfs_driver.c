@@ -34,6 +34,40 @@
 #include "lfs_driver.h"
 
 
+static ssize_t read_fd(int fd, void *buf, size_t count)
+{
+	size_t bytes_read = 0;
+	ssize_t len;
+
+	do {
+		do {
+			len = read(fd, buf + bytes_read, count - bytes_read);
+		} while (len < 0 && (errno == EINTR));
+		if (len > 0)
+			bytes_read += len;
+	} while (len > 0 && bytes_read < count);
+
+	return bytes_read;
+}
+
+
+static ssize_t write_fd(int fd, const void *buf, size_t count)
+{
+	size_t bytes_written = 0;
+	ssize_t len;
+
+	do {
+		do {
+			len = write(fd, buf + bytes_written, count - bytes_written);
+		} while (len < 0 && (errno == EINTR));
+		if (len > 0)
+			bytes_written += len;
+	} while (len > 0 && bytes_written < count);
+
+	return bytes_written;
+}
+
+
 static int block_device_read(const struct lfs_config *c, lfs_block_t block,
 		lfs_off_t off, void *buffer, lfs_size_t size)
 {
@@ -55,7 +89,7 @@ static int block_device_read(const struct lfs_config *c, lfs_block_t block,
 			LFS_ERROR("seek failed: %ld (errno=%d)", f_offset, errno);
 			return LFS_ERR_IO;
 		}
-		if (read(ctx->fd, buffer, size) < size) {
+		if (read_fd(ctx->fd, buffer, size) < size) {
 			LFS_ERROR("failed to read file");
 			return LFS_ERR_IO;
 		}
@@ -93,7 +127,7 @@ static int block_device_prog(const struct lfs_config *c, lfs_block_t block,
 			LFS_ERROR("seek failed: %ld", f_offset);
 			return LFS_ERR_IO;
 		}
-		if (write(ctx->fd, buffer, size) < size) {
+		if (write_fd(ctx->fd, buffer, size) < size) {
 			LFS_ERROR("failed to read file");
 			return LFS_ERR_IO;
 		}
@@ -129,7 +163,7 @@ static int block_device_erase(const struct lfs_config *c, lfs_block_t block)
 			LFS_ERROR("seek failed: %ld", f_offset);
 			return LFS_ERR_IO;
 		}
-		if (write(ctx->fd, null_buf, null_buf_size) < null_buf_size) {
+		if (write_fd(ctx->fd, null_buf, null_buf_size) < null_buf_size) {
 			LFS_ERROR("failed to write file");
 			return LFS_ERR_IO;
 		}
