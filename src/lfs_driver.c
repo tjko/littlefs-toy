@@ -75,7 +75,7 @@ static int block_device_prog(const struct lfs_config *c, lfs_block_t block,
 		return LFS_ERR_IO;
 	}
 	if (off % c->prog_size != 0) {
-		LFS_ERROR("flash addres must be aligned to flash page");
+		LFS_ERROR("flash address must be aligned to flash page");
 		return LFS_ERR_IO;
 	}
 	if (size % c->prog_size != 0) {

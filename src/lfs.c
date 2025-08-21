@@ -55,22 +55,23 @@ uint32_t image_size = 0;
 uint32_t image_offset = 0;
 
 static const struct option long_options[] = {
-	{ "create",             0, NULL,                'c' },
-	{ "update",             0, NULL,                'r' },
-	{ "delete",             0, NULL,                'd' },
-	{ "list",               0, NULL,                't' },
-	{ "file",               1, NULL,                'f' },
-	{ "block-size",         1, NULL,                'b' },
-	{ "size",               1, NULL,                's' },
-	{ "offset",             1, NULL,                'o' },
-	{ "directory",          1, NULL,                'C' },
-	{ "help",		0, NULL,		'h' },
-	{ "verbose",		0, NULL,		'v' },
-	{ "version",		0, NULL,		'V' },
-	{ "overwrite",          0, NULL,                'O' },
-	{ "direct",             0, &direct_mode,         1 },
-	{ "shrink",             0, &shrink_mode,         1 },
-	{ NULL, 0, NULL, 0 }
+        { "create",             0, NULL,                'c' },
+        { "update",             0, NULL,                'r' },
+        { "delete",             0, NULL,                'd' },
+        { "list",               0, NULL,                't' },
+        { "extract",            0, NULL,                'x' },
+        { "file",               1, NULL,                'f' },
+        { "block-size",         1, NULL,                'b' },
+        { "size",               1, NULL,                's' },
+        { "offset",             1, NULL,                'o' },
+        { "directory",          1, NULL,                'C' },
+        { "help",               0, NULL,                'h' },
+        { "verbose",            0, NULL,                'v' },
+        { "version",            0, NULL,                'V' },
+        { "overwrite",          0, NULL,                'O' },
+        { "direct",             0, &direct_mode,         1 },
+        { "shrink",             0, &shrink_mode,         1 },
+        { NULL, 0, NULL, 0 }
 };
 
 static const char *copyright = "Copyright (C) 2025 Timo Kokkonen";
@@ -148,13 +149,66 @@ bool match_param(const char *name, param_t *list)
 }
 
 
-int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params, bool match_all)
+int extract_file(lfs_t *lfs, const char *pathname, bool overwrite)
+{
+	lfs_file_t file;
+	struct stat st;
+	void *buf = NULL;
+	int fd = -1;
+	int res = 0;
+	lfs_ssize_t len;
+
+
+	if (!lfs || !pathname)
+		return -1;
+
+	/* Check if file already exists? */
+	if (!overwrite && !stat(pathname, &st))
+		return 1;
+
+	/* Create new file */
+	if ((fd = create_file(pathname, 0)) < 0)
+		return -2;
+
+	/* Open file in lfs */
+	if ((res = lfs_file_open(lfs, &file, pathname, LFS_O_RDONLY)) != LFS_ERR_OK)
+		res = -3;
+
+	/* Allocate buffer for copying the file */
+	if (res == 0) {
+		if (!(buf = malloc(COPY_BUF_SIZE)))
+			res = -4;
+	}
+
+	/* Copy file */
+	if (res == 0) {
+		while ((len = lfs_file_read(lfs, &file, buf, COPY_BUF_SIZE)) > 0) {
+			if (write_file(fd, -1, buf, len)) {
+				res = -5;
+				break;
+			}
+		}
+		lfs_file_close(lfs, &file);
+	}
+
+	if (fd > 0)
+		close(fd);
+	if (buf)
+		free(buf);
+
+	return res;
+}
+
+
+int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params,
+		bool match_all, bool extract_mode)
 {
 	lfs_dir_t dir;
 	struct lfs_info info;
 	char separator[2] = "/";
 	char fullname[LFS_NAME_MAX * 2];
 	size_t path_len;
+	int errors = 0;
 	int res;
 
 	if (!lfs || !path)
@@ -193,26 +247,37 @@ int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params,
 		}
 
 		if (!skip) {
-			if (verbose_mode) {
-				printf("%crw-rw-rw- root/root %9u 0000-00-00 00:00 %s%s%s\n",
-					(info.type == LFS_TYPE_DIR ? 'd' : '-'),
-					info.size,
-					path, separator, info.name);
+			if (!extract_mode) {
+				if (verbose_mode)
+					printf("%crw-rw-rw- root/root %9u 0000-00-00 00:00 %s\n",
+						(info.type == LFS_TYPE_DIR ? 'd' : '-'),
+						info.size, fullname);
+				else
+					printf("%s\n", fullname);
 			}
-			else {
-				printf("%s%s%s\n", path, separator, info.name);
+			else if (extract_mode && info.type == LFS_TYPE_REG) {
+				if ((res = extract_file(lfs, fullname, overwrite_mode))) {
+					if (res > 0)
+						warn("%s: file already exists", fullname);
+					else
+						warn("%s: failed to extract file (%d)", fullname, res);
+					errors++;
+					break;
+				}
+				if (verbose_mode)
+					printf("%s\n", fullname);
 			}
 		}
 
 		if (info.type == LFS_TYPE_DIR && recursive) {
-			littlefs_list(lfs, fullname, recursive, params, !skip);
+			littlefs_list(lfs, fullname, recursive, params, !skip, extract_mode);
 		}
 	}
 
 	/* Close directory */
 	lfs_dir_close(lfs, &dir);
 
-	return 0;
+	return (errors ? 1 : 0);
 }
 
 
@@ -533,6 +598,7 @@ void print_usage()
 		"  -r, --append               Append (add) files to existing LFS image\n"
 		"  -d, --delete               Remove files from existing LFS image\n"
 		"  -t, --list                 List contents of existing LFS image\n\n"
+		"  -x, --extract              Extract files from existing LFS image\n\n"
 		" Options:\n"
 		" -f <imagefile>, --file=<imagefile>\n"
                 "                             Specify LFS image file location\n"
@@ -561,7 +627,7 @@ int parse_arguments(int argc, char **argv)
 
 	while (1) {
 		opt_index = 0;
-		if ((c = getopt_long(argc, argv, "crdtf:b:s:o:C:hvVO",
+		if ((c = getopt_long(argc, argv, "crdtxf:b:s:o:C:hvVO",
 						long_options, &opt_index)) == -1)
 			break;
 
@@ -581,6 +647,10 @@ int parse_arguments(int argc, char **argv)
 
 		case 't':
 			command = LFS_LIST;
+			break;
+
+		case 'x':
+			command = LFS_EXTRACT;
 			break;
 
 		case 'f':
@@ -776,8 +846,10 @@ int main(int argc, char **argv)
 	/* Process command */
 	switch (command) {
 
+	case LFS_EXTRACT:
 	case LFS_LIST:
-		if (littlefs_list(&lfs, "./", true, params, false) > 0)
+		if (littlefs_list(&lfs, "./", true, params, false,
+					command == LFS_EXTRACT ? true : false) > 0)
 			ret = 1;
 		param_t *p = params;
 		while (p) {

@@ -35,6 +35,7 @@ enum lfs_commands {
 	LFS_CREATE = 2,
 	LFS_UPDATE = 3,
 	LFS_DELETE = 4,
+	LFS_EXTRACT = 5
 };
 
 typedef struct param_t {
