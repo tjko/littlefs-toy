@@ -157,6 +157,7 @@ int extract_file(lfs_t *lfs, const char *pathname, bool overwrite)
 	int fd = -1;
 	int res = 0;
 	lfs_ssize_t len;
+	char *dirname;
 
 
 	if (!lfs || !pathname)
@@ -165,6 +166,15 @@ int extract_file(lfs_t *lfs, const char *pathname, bool overwrite)
 	/* Check if file already exists? */
 	if (!overwrite && !stat(pathname, &st))
 		return 1;
+
+	/* Create directory if needed */
+	if ((dirname = splitdir(pathname))) {
+		if (*dirname)
+			res = mkdir_parent(dirname, 0777);
+		free(dirname);
+		if (res)
+			return 2;
+	}
 
 	/* Create new file */
 	if ((fd = create_file(pathname, 0)) < 0)
@@ -257,8 +267,12 @@ int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params,
 			}
 			else if (extract_mode && info.type == LFS_TYPE_REG) {
 				if ((res = extract_file(lfs, fullname, overwrite_mode))) {
-					if (res > 0)
-						warn("%s: file already exists", fullname);
+					if (res > 0) {
+						if ( res == 1)
+							warn("%s: file already exists", fullname);
+						else
+							warn("%x: failed to create directory", fullname);
+					}
 					else
 						warn("%s: failed to extract file (%d)", fullname, res);
 					errors++;
