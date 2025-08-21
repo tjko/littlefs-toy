@@ -1,0 +1,130 @@
+.TH LFS 1 "August 2025" "littlefs-toy" "User Commands"
+.SH NAME
+lfs \- tool for working with LittleFS images
+.SH SYNOPSIS
+.B lfs
+\fICOMMAND\fR [\fIOPTION\fR]... [\fIFILE\fR | \fIPATTERN\fR]...
+.SH DESCRIPTION
+.B lfs
+is a tool for creating and manipulating LittleFS images.
+LittleFS is a little fail-safe filesystem designed for microcontrollers and embedded systems.
+.PP
+The tool supports creating new LittleFS images, adding files to existing images,
+listing image contents, and removing files from images.
+.SH COMMANDS
+.TP
+.BR \-c ", " \-\-create
+Create (format) a new LittleFS image and add specified files to it.
+Requires \fB\-s\fR option to specify the image size.
+.TP
+.BR \-r ", " \-\-append
+Append (add) files to an existing LittleFS image.
+.TP
+.BR \-d ", " \-\-delete
+Remove files from an existing LittleFS image.
+.TP
+.BR \-t ", " \-\-list
+List contents of an existing LittleFS image.
+.SH OPTIONS
+.TP
+.BR \-f " " \fIIMAGEFILE\fR ", " \-\-file=\fIIMAGEFILE\fR
+Specify the LittleFS image file location. This option is required.
+.TP
+.BR \-b " " \fIBLOCKSIZE\fR ", " \-\-block-size=\fIBLOCKSIZE\fR
+Set the LittleFS filesystem blocksize in bytes (default: 4096).
+Must be between 128 and 2147483648.
+.TP
+.BR \-s " " \fIIMAGESIZE\fR ", " \-\-size=\fIIMAGESIZE\fR
+Set the LittleFS filesystem size in bytes. This option is required when creating a new image with \fB\-c\fR.
+.TP
+.BR \-o " " \fIIMAGEOFFSET\fR ", " \-\-offset=\fIIMAGEOFFSET\fR
+Set the LittleFS filesystem start offset in the image file (default: 0).
+.TP
+.BR \-C " " \fIDIRECTORY\fR ", " \-\-directory=\fIDIRECTORY\fR
+Change to the specified directory before processing files.
+.TP
+.BR \-h ", " \-\-help
+Display help information and exit.
+.TP
+.BR \-v ", " \-\-verbose
+Enable verbose mode. Shows detailed information about operations.
+Can be specified multiple times to increase verbosity.
+.TP
+.BR \-V ", " \-\-version
+Display version information and exit.
+.TP
+.BR \-O ", " \-\-overwrite
+Overwrite the image file if it already exists (when used with \fB\-c\fR).
+.TP
+.BR \-\-direct
+Write to image file directly instead of using memory buffering.
+Uses less memory but may be slower.
+.SH EXAMPLES
+.PP
+Create a 1MB LittleFS image:
+.RS
+.B lfs -c -f filesystem.lfs -s 1048576
+.RE
+.PP
+Create a new image and add files to it:
+.RS
+.B lfs -c -f filesystem.lfs -s 1048576 file1.txt file2.txt
+.RE
+.PP
+List all files in an existing image:
+.RS
+.B lfs -t -f filesystem.lfs
+.RE
+.PP
+List specific files in an image:
+.RS
+.B lfs -t -f filesystem.lfs config.txt data/
+.RE
+.PP
+Add files to an existing image:
+.RS
+.B lfs -r -f filesystem.lfs newfile.txt docs/
+.RE
+.PP
+Remove files from an image:
+.RS
+.B lfs -d -f filesystem.lfs oldfile.txt temp/
+.RE
+.PP
+Create image with custom block size:
+.RS
+.B lfs -c -f filesystem.lfs -s 2097152 -b 8192
+.RE
+.PP
+Add files from a different directory:
+.RS
+.B lfs -r -f filesystem.lfs -C /home/user/data .
+.RE
+.SH FILES
+.TP
+.I ~/.lfsrc
+User configuration file for default options (not currently implemented).
+.TP
+.I /etc/lfs.conf
+System-wide configuration file (not currently implemented).
+.SH EXIT STATUS
+.B lfs
+exits with status 0 on success, and >0 if an error occurs.
+.SH SEE ALSO
+.BR tar (1),
+.BR dd (1)
+.PP
+LittleFS specification and documentation:
+.I https://github.com/littlefs-project/littlefs
+.SH AUTHOR
+Written by Timo Kokkonen.
+.SH COPYRIGHT
+Copyright \(co 2025 Timo Kokkonen.
+License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
+.br
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+.SH BUGS
+Report bugs to: <tjko@iki.fi>
+.br
+Project home page: <https://github.com/tjko/littlefs-toy>
