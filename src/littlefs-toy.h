@@ -37,6 +37,11 @@ enum lfs_commands {
 	LFS_DELETE = 4,
 };
 
+typedef struct param_t {
+	const char *name;
+	bool found;
+	struct param_t *next;
+} param_t;
 
 
 /* util.c */
@@ -50,6 +55,8 @@ int is_directory(const char *path);
 int is_file(const char *filename, struct stat *st);
 int file_exists(const char *pathname);
 int rename_file(const char *old_path, const char *new_path);
+char *trim_str(char *s);
+int parse_int_str(const char *str, int64_t *val, int64_t min, int64_t max);
 void fatal(const char *format, ...);
 void warn(const char *format, ...);
 const char* warn_last_msg();

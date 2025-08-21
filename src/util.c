@@ -34,6 +34,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <wctype.h>
 #include <time.h>
 #include <errno.h>
 
@@ -214,6 +216,108 @@ int file_exists(const char *pathname)
 	return (stat(pathname,&buf) == 0 ? 1 : 0);
 }
 
+
+char *trim_str(char *s)
+{
+	char *e;
+
+	if (!s) return NULL;
+
+	while (iswspace(*s))
+		s++;
+	e = s + strlen(s) - 1;
+	while (e >= s && iswspace(*e))
+		*e-- = 0;
+
+	return s;
+}
+
+
+int parse_int_str(const char *str, int64_t *val, int64_t min, int64_t max)
+{
+	char *str_copy = NULL;
+	int64_t v = 0;
+	int64_t m = 1;
+	int base = 10;
+	int res = 0;
+	char *suffix, *s;
+	size_t len;
+
+
+	if (!str || !val)
+		return -1;
+	if (!(str_copy = strdup(str)))
+		return -2;
+
+	/* Trim any whitespace from beginning and end */
+	s = trim_str(str_copy);
+	if (!s || (len = strlen(s)) < 1) {
+		res = -3;
+	}
+
+	/* Attempt to parse string */
+	if (res == 0) {
+		/* Check prefix (for hex) */
+		if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+			base = 16;
+
+		v = strtoll(s, &suffix, base);
+		if (s == suffix)
+			res = 1;
+	}
+
+	/* Check suffix */
+	if (res == 0) {
+		while (*suffix && isspace(*suffix))
+			suffix++;
+		if (*suffix) {
+			switch (*suffix) {
+			case 'K':
+				m = 1024;
+				break;
+			case 'k':
+				m = 1000;
+				break;
+			case 'M':
+				m = 1048576;
+				break;
+			case 'm':
+				m = 1000000;
+				break;
+			case 'G':
+				m = 1073741824;
+				break;
+			case 'g':
+				m = 1000000000;
+				break;
+			case 'T':
+				m = 1099511627776L;
+				break;
+			case 't':
+				m = 1000000000000L;
+				break;
+
+			default:
+				res = -4;
+			}
+		}
+	}
+
+	/* Apply suffix (multiplier) */
+	if (res == 0) {
+		v *= m;
+		if (v < min || v > max)
+			res = 2;
+	}
+
+
+	if (res == 0)
+		*val = v;
+	if (str_copy)
+		free(str_copy);
+
+	return res;
+}
 
 
 void fatal(const char *format, ...)
