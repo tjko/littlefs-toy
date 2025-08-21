@@ -800,16 +800,11 @@ int main(int argc, char **argv)
 	}
 
 	/* Mount LittleFS */
-#if 0
-	block_size = 512;
-	lfs_change_blocksize(ctx, image_size, block_size);
-	if ((res = lfs_mount(&lfs, &ctx->cfg)) != LFS_ERR_OK)
-		fatal("%s: failed to mount LittleFS (%d)", image_file, res);
-#endif
 	if ((res = littlefs_mount(ctx, &lfs)))
 		fatal("%s: failed to mount LittleFS (%d)", image_file, res);
 
 	if (image_size == 0) {
+		ctx->cfg.block_count = lfs.block_count;
 		image_size = block_size * lfs.block_count;
 	} else {
 		uint32_t new_size = block_size * lfs.block_count;
