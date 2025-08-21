@@ -597,7 +597,7 @@ void print_usage()
 		"  -c, --create               Create (format) LFS image and add files\n"
 		"  -r, --append               Append (add) files to existing LFS image\n"
 		"  -d, --delete               Remove files from existing LFS image\n"
-		"  -t, --list                 List contents of existing LFS image\n\n"
+		"  -t, --list                 List contents of existing LFS image\n"
 		"  -x, --extract              Extract files from existing LFS image\n\n"
 		" Options:\n"
 		" -f <imagefile>, --file=<imagefile>\n"
@@ -616,8 +616,6 @@ void print_usage()
 		" --shrink                    Truncate image file at the end of LFS image\n"
 		"\n\n", LFS_DEFAULT_BLOCKSIZE);
 }
-
-
 
 
 int parse_arguments(int argc, char **argv)
@@ -727,7 +725,6 @@ int parse_arguments(int argc, char **argv)
 
 
 /*****************************************************************************/
-
 int main(int argc, char **argv)
 {
 	struct lfs_context *ctx;
@@ -905,3 +902,5 @@ int main(int argc, char **argv)
 
 	return ret;
 }
+
+/* eof :-) */
