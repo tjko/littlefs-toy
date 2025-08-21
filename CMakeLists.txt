@@ -15,7 +15,11 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(BUILD_TAG beta CACHE STRING "Build Tag")
-#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, e.g. Debug, Release")
+if(CMAKE_BUILD_TYPE STREQUAL "")
+  set(CMAKE_BUILD_TYPE Release)
+endif()
+
 
 message("==========================================================")
 message("        BUILD_TAG: ${BUILD_TAG}")
@@ -42,7 +46,11 @@ target_sources(littlefs INTERFACE
   libs/littlefs/lfs.c
   libs/littlefs/lfs_util.c
 )
-
+set_source_files_properties(
+  libs/littlefs/lfs.c
+  PROPERTIES
+  COMPILE_OPTIONS "-Wno-unused-function"
+)
 
 
 add_executable(lfs
