@@ -21,6 +21,7 @@ Usage: lfs {command} [options] [(file) | (pattern) ...]
   -r, --append               Append (add) files to existing LFS image
   -d, --delete               Remove files from existing LFS image
   -t, --list                 List contents of existing LFS image
+  -x, --extract              Extract files from existing LFS image
 
  Options:
  -f <imagefile>, --file=<imagefile>
@@ -88,10 +89,20 @@ It is possible to use (-o) option to specify offset from beginning of the
 image file where the LittleFS image starts. Offset can be specified either in decimal
 hexadecimal format.
 
-Extract file from a 256K LittleFS at the end of 2Mb firmware dump:
+Extract files from a 256K LittleFS at the end of 2Mb firmware dump into /tmp directory:
 ```
-$ lfs -x -v -f firmware.dump -o 0x1c0000 config.json
-./config.json
+$ lfs -x -v -f flash.dump -o 0x1c0000 -C /tmp
+./cert.pem
+./fanpico.cfg
+./key.pem
+./ssh-ecdsa.der
+./ssh-ed25519.der
+```
+
+Add/replace file in the LittleFS embbedded in the flash dump:
+```
+$ lfs -r -v -f flash.dump -o 0x1c0000  fanpico.cfg
+./fanpico.cfg
 ```
 
 # Compiling
