@@ -48,6 +48,7 @@ target_sources(littlefs INTERFACE
 add_executable(lfs
   src/lfs.c
   src/lfs_driver.c
+  src/lfs_extra.c
   src/util.c
 )
 target_include_directories(lfs PRIVATE src)
