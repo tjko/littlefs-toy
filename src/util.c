@@ -226,6 +226,40 @@ int file_exists(const char *pathname)
 }
 
 
+int mkdir_parent(const char *pathname, mode_t mode)
+{
+	int res = 0;
+	char *dir, *tok, *saveptr;
+
+	if (!pathname || *pathname == 0)
+		return -1;
+	if (!(dir = strdup(pathname)))
+		return -2;
+	if (!(tok = strtok_r(dir, "/", &saveptr)))
+		res = -3;
+
+	if (res == 0) {
+		while (tok) {
+			if (dir[0] == '.' && dir[1] == '.' && dir[2] == 0) {
+				res = -4;
+				break;
+			}
+			if (!(dir[0] == '.' && dir[1] == 0)) {
+				if (mkdir(dir, mode) < 0 && errno != EEXIST) {
+					res = -5;
+					break;
+				}
+			}
+			*(saveptr - 1) = '/';
+			tok = strtok_r(NULL, "/", &saveptr);
+		}
+	}
+
+	free(dir);
+
+	return res;
+}
+
 char *trim_str(char *s)
 {
 	char *e;
@@ -241,6 +275,27 @@ char *trim_str(char *s)
 	return s;
 }
 
+
+char *splitdir(const char *filename)
+{
+	char *buf = NULL;
+	ssize_t len;
+	char *s;
+
+	if (!filename)
+		return NULL;
+	if (!(s = strrchr(filename, '/')))
+		return NULL;
+
+	/* Create new string that contains the directory portion */
+	len = s - filename + 1;
+	if (!(buf = calloc(1, len)))
+		return NULL;
+	if (len > 1)
+		memcpy(buf, filename, len - 1);
+
+	return buf;
+}
 
 int parse_int_str(const char *str, int64_t *val, int64_t min, int64_t max)
 {
