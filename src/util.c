@@ -64,7 +64,12 @@ int file_set_zero(int fd, off_t offset, off_t size)
 
 		while (written < size) {
 			ssize_t len = ((size - written) > BUF_SIZE ? BUF_SIZE : (size - written));
-			if (write(fd, buf, len) < len)
+			ssize_t wrote;
+
+			do {
+				wrote = write(fd, buf, len);
+			} while (wrote < 0 && errno == EINTR);
+			if (wrote <= 0)
 				break;
 			written += len;
 		}
@@ -133,7 +138,9 @@ int read_file(int fd, off_t offset, void *buf, size_t size)
 	}
 
 	do {
-		len = read(fd, buf + bytes_read, (size - bytes_read));
+		do {
+			len = read(fd, buf + bytes_read, (size - bytes_read));
+		} while (len < 0 && errno == EINTR);
 		if (len > 0)
 			bytes_read += len;
 	} while (len > 0 && bytes_read < size);
@@ -154,7 +161,9 @@ int write_file(int fd, off_t offset, void *buf, size_t size)
 	}
 
 	do {
-		len = write(fd, buf + bytes_written, (size - bytes_written));
+		do {
+			len = write(fd, buf + bytes_written, (size - bytes_written));
+		} while (len < 0 && errno == EINTR);
 		if (len > 0)
 			bytes_written += len;
 	} while (len > 0 && bytes_written < size);
