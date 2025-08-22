@@ -6,11 +6,11 @@ A free tool for working with [LittleFS](https://github.com/littlefs-project/litt
   - Create and modify LittleFS images with similar command interface as _tar_.
   - Allows adding, updating, and deleting files and directories on a LittleFS filesystem.
   - Automatically detects filesystem blocksize and size when working on existing filesystem images.
-  - Can edit LittleFS filesystem that is at arbitrary offset on another file/image (makes it easy to work on LittleFS images emmbedded inside a firmware image, etc.)
+  - Can edit LittleFS filesystem that is at arbitrary offset inside another file/image (makes it easy to work on LittleFS images emmbedded inside a firmware image, etc.)
 
 # Usage
 
-**lfs** works in similar fashion as **tar* command on Linux/Unix systems.
+**lfs** works in similar fashion as **tar** command on Linux/Unix systems.
 
 ## Command Summary
 ```
