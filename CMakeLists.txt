@@ -4,12 +4,6 @@
 cmake_minimum_required(VERSION 3.20)
 
 
-project(littlefs-toy
-	VERSION 1.0.0
-	DESCRIPTION "littlefs-toy - A tool for creating and modifying LittleFS images."
-	HOMEPAGE_URL https://github.com/tjko/littlefs-toy/
-	LANGUAGES C
-	)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -21,10 +15,14 @@ if(CMAKE_BUILD_TYPE STREQUAL "")
 endif()
 
 
-message("==========================================================")
-message("        BUILD_TAG: ${BUILD_TAG}")
-message(" CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-message("==========================================================")
+project(littlefs-toy
+	VERSION 1.0.0
+	DESCRIPTION "littlefs-toy - A tool for creating and modifying LittleFS images."
+	HOMEPAGE_URL https://github.com/tjko/littlefs-toy/
+	LANGUAGES C
+	)
+
+
 
 include(GNUInstallDirs)
 include(CheckIncludeFile)
@@ -34,6 +32,8 @@ check_include_file(unistd.h HAVE_UNISTD_H)
 check_include_file(getopt.h HAVE_GETOPT_H)
 
 check_function_exists(getopt_long HAVE_GETOPT_LONG)
+
+find_package(Python3 COMPONENTS Interpreter Development)
 
 
 # LittleFS
@@ -99,3 +99,19 @@ install(TARGETS lfs)
 install(FILES man/lfs.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 install(FILES README.md LICENSE TYPE DOC)
 
+
+if (Python3_FOUND)
+  enable_testing()
+  add_test(NAME lfs_tests
+	 COMMAND ${Python3_EXECUTABLE} test_lfs.py
+	 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
+	 )
+
+  set_property(TEST lfs_tests PROPERTY ENVIRONMENT "LFS=$<TARGET_FILE:lfs>" "DEBUG=1")
+endif()
+
+
+message("==========================================================")
+message("        BUILD_TAG: ${BUILD_TAG}")
+message(" CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("==========================================================")
