@@ -99,7 +99,7 @@ $ lfs -x -v -f flash.dump -o 0x1c0000 -C /tmp
 ./ssh-ed25519.der
 ```
 
-Add/replace file in the LittleFS embbedded in the flash dump:
+Add/replace file in the LittleFS embedded in the flash dump:
 ```
 $ lfs -r -v -f flash.dump -o 0x1c0000  fanpico.cfg
 ./fanpico.cfg

@@ -88,7 +88,7 @@ class LFSTests(unittest.TestCase):
         self.assertRegex(output, r'lfs v\d+\.\d+\.\d+')
 
     def test_noarguments(self):
-        """test running withouth arguments"""
+        """test running without arguments"""
         output, res = self.run_test([], check=False)
         self.assertEqual(1, res)
         self.assertRegex(output, r'no command specified')

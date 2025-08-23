@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-set(BUILD_TAG beta CACHE STRING "Build Tag")
+#set(BUILD_TAG beta)
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, e.g. Debug, Release")
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE Release)
