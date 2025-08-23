@@ -1,0 +1,20 @@
+Test files for littlefs-toy
+
+Test files: test*.bin contain "random" data sourced from Linux /dev/urandom
+
+LittleFS image files contain all the test files (test*.bin):
+ - lfs_512.img         (blocksize=512)
+ - lfs_4096.img        (blocksize=4096)
+ - lfs_offset_64K.img  (blocksize=4096, offset=64K)
+
+
+Example:
+
+$ lfs -tf lfs_4096.img 
+./test1.bin
+./test2.bin
+./test3.bin
+./test4.bin
+./test5.bin
+
+
