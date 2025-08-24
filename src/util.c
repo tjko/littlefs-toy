@@ -250,7 +250,8 @@ int mkdir_parent(const char *pathname, mode_t mode)
 					break;
 				}
 			}
-			*(saveptr - 1) = '/';
+			if (saveptr)
+				*(saveptr - 1) = '/';
 			tok = strtok_r(NULL, "/", &saveptr);
 		}
 	}
