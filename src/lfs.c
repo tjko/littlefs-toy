@@ -57,25 +57,25 @@ uint32_t image_size = 0;
 uint32_t image_offset = 0;
 
 static const struct option long_options[] = {
-	{ "create",		0, NULL,		'c' },
-	{ "update",		0, NULL,		'r' },
-	{ "delete",		0, NULL,		'd' },
-	{ "list",		0, NULL,		't' },
-	{ "extract",		0, NULL,		'x' },
-	{ "file",		1, NULL,		'f' },
-	{ "block-size",		1, NULL,		'b' },
-	{ "size",		1, NULL,		's' },
-	{ "offset",		1, NULL,		'o' },
-	{ "directory",		1, NULL,		'C' },
-	{ "help",		0, NULL,		'h' },
-	{ "verbose",		0, NULL,		'v' },
-	{ "version",		0, NULL,		'V' },
-	{ "overwrite",		0, NULL,		'O' },
-	{ "direct",		0, &direct_mode,	 1 },
-	{ "shrink",		0, &shrink_mode,	 1 },
-	{ "stdout",		0, &stdout_mode,	 1 },
-	{ "stdin",		0, &stdin_mode,		 1 },
-	{ NULL, 0, NULL, 0 }
+        { "create",             0, NULL,                'c' },
+        { "update",             0, NULL,                'r' },
+        { "delete",             0, NULL,                'd' },
+        { "list",               0, NULL,                't' },
+        { "extract",            0, NULL,                'x' },
+        { "file",               1, NULL,                'f' },
+        { "block-size",         1, NULL,                'b' },
+        { "size",               1, NULL,                's' },
+        { "offset",             1, NULL,                'o' },
+        { "directory",          1, NULL,                'C' },
+        { "help",               0, NULL,                'h' },
+        { "verbose",            0, NULL,                'v' },
+        { "version",            0, NULL,                'V' },
+        { "overwrite",          0, NULL,                'O' },
+        { "direct",             0, &direct_mode,         1 },
+        { "shrink",             0, &shrink_mode,         1 },
+        { "stdout",             0, &stdout_mode,         1 },
+        { "stdin",              0, &stdin_mode,          1 },
+        { NULL, 0, NULL, 0 }
 };
 
 static const char *copyright = "Copyright (C) 2025 Timo Kokkonen";
