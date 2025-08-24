@@ -89,6 +89,15 @@ This option is only applicable when updating existing image file and re-creating
 filesystem inside the file, etc.
 Without this option existing image file is never shrunk, even if there is space after end of
 the filesystem image.
+.TP
+.BR \-\-stdout
+When extracting file(s) from filesystem image (-x option), send extracted file to stdout.
+If multiple files are specified, then these files are concatenated to stdout.
+.TP
+.BR \-\-stdin
+When when adding file to filesystem image (-c or -r option), read file content from stdin.
+Filename must still be given on command line (to specify file to create on the filesystem).
+Only one file can be added at a time.
 
 .SH EXAMPLES
 .PP

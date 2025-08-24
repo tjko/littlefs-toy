@@ -48,6 +48,8 @@ int verbose_mode = 0;
 int overwrite_mode = 0;
 int direct_mode = 0;
 int shrink_mode = 0;
+int stdout_mode = 0;
+int stdin_mode = 0;
 char *image_file = NULL;
 char *directory = NULL;
 lfs_size_t block_size = LFS_DEFAULT_BLOCKSIZE;
@@ -55,23 +57,25 @@ uint32_t image_size = 0;
 uint32_t image_offset = 0;
 
 static const struct option long_options[] = {
-        { "create",             0, NULL,                'c' },
-        { "update",             0, NULL,                'r' },
-        { "delete",             0, NULL,                'd' },
-        { "list",               0, NULL,                't' },
-        { "extract",            0, NULL,                'x' },
-        { "file",               1, NULL,                'f' },
-        { "block-size",         1, NULL,                'b' },
-        { "size",               1, NULL,                's' },
-        { "offset",             1, NULL,                'o' },
-        { "directory",          1, NULL,                'C' },
-        { "help",               0, NULL,                'h' },
-        { "verbose",            0, NULL,                'v' },
-        { "version",            0, NULL,                'V' },
-        { "overwrite",          0, NULL,                'O' },
-        { "direct",             0, &direct_mode,         1 },
-        { "shrink",             0, &shrink_mode,         1 },
-        { NULL, 0, NULL, 0 }
+	{ "create",		0, NULL,		'c' },
+	{ "update",		0, NULL,		'r' },
+	{ "delete",		0, NULL,		'd' },
+	{ "list",		0, NULL,		't' },
+	{ "extract",		0, NULL,		'x' },
+	{ "file",		1, NULL,		'f' },
+	{ "block-size",		1, NULL,		'b' },
+	{ "size",		1, NULL,		's' },
+	{ "offset",		1, NULL,		'o' },
+	{ "directory",		1, NULL,		'C' },
+	{ "help",		0, NULL,		'h' },
+	{ "verbose",		0, NULL,		'v' },
+	{ "version",		0, NULL,		'V' },
+	{ "overwrite",		0, NULL,		'O' },
+	{ "direct",		0, &direct_mode,	 1 },
+	{ "shrink",		0, &shrink_mode,	 1 },
+	{ "stdout",		0, &stdout_mode,	 1 },
+	{ "stdin",		0, &stdin_mode,		 1 },
+	{ NULL, 0, NULL, 0 }
 };
 
 static const char *copyright = "Copyright (C) 2025 Timo Kokkonen";
@@ -163,22 +167,27 @@ int extract_file(lfs_t *lfs, const char *pathname, bool overwrite)
 	if (!lfs || !pathname)
 		return -1;
 
-	/* Check if file already exists? */
-	if (!overwrite && !stat(pathname, &st))
-		return 1;
-
-	/* Create directory if needed */
-	if ((dirname = splitdir(pathname))) {
-		if (*dirname)
-			res = mkdir_parent(dirname, 0777);
-		free(dirname);
-		if (res)
-			return 2;
+	if (stdout_mode) {
+		fd = STDOUT_FILENO;
 	}
+	else {
+		/* Check if file already exists? */
+		if (!overwrite && !stat(pathname, &st))
+			return 1;
 
-	/* Create new file */
-	if ((fd = create_file(pathname, 0)) < 0)
-		return -2;
+		/* Create directory if needed */
+		if ((dirname = splitdir(pathname))) {
+			if (*dirname)
+				res = mkdir_parent(dirname, 0777);
+			free(dirname);
+			if (res)
+				return 2;
+		}
+
+		/* Create new file */
+		if ((fd = create_file(pathname, 0)) < 0)
+			return -2;
+	}
 
 	/* Open file in lfs */
 	if ((res = lfs_file_open(lfs, &file, pathname, LFS_O_RDONLY)) != LFS_ERR_OK)
@@ -201,7 +210,7 @@ int extract_file(lfs_t *lfs, const char *pathname, bool overwrite)
 		lfs_file_close(lfs, &file);
 	}
 
-	if (fd > 0)
+	if (fd > STDERR_FILENO)
 		close(fd);
 	if (buf)
 		free(buf);
@@ -279,7 +288,7 @@ int littlefs_list(lfs_t *lfs, const char *path, bool recursive, param_t *params,
 					break;
 				}
 				if (verbose_mode)
-					printf("%s\n", fullname);
+					fprintf(stdout_mode ? stderr : stdout, "%s\n", fullname);
 			}
 		}
 
@@ -360,7 +369,11 @@ int copy_file_in(lfs_t *lfs, const char *pathname, bool overwrite)
 	free(dirname);
 
 	/* Create the file */
-	if ((fd = open_file(pathname, true)) >= 0) {
+	if (stdin_mode)
+		fd = STDIN_FILENO;
+	else
+		fd = open_file(pathname, true);
+	if (fd >= 0) {
 		res = lfs_file_open(lfs, &file, newpath, LFS_O_WRONLY | LFS_O_CREAT);
 		if (res == LFS_ERR_OK) {
 			if ((buf = calloc(1, COPY_BUF_SIZE))) {
@@ -378,7 +391,8 @@ int copy_file_in(lfs_t *lfs, const char *pathname, bool overwrite)
 		} else {
 			res =-6;
 		}
-		close(fd);
+		if (fd > STDERR_FILENO)
+			close(fd);
 	}
 	else {
 		res = -5;
@@ -458,9 +472,16 @@ int littlefs_add(lfs_t *lfs, param_t *params, bool overwrite)
 	if (params) {
 		param_t *p = params;
 		while (p) {
-			if (lstat(p->name, &st)) {
+			if (stdin_mode) {
+				if ((res = copy_file_in(lfs, p->name, overwrite))) {
+					warn("%s: failed to add file from stdin", p->name);
+				}
+				break;
+			}
+			else if (lstat(p->name, &st)) {
 				warn("cannot stat file: %s", p->name);
-			} else {
+			}
+			else {
 				if (S_ISREG(st.st_mode)) {
 					if ((res = copy_file_in(lfs, p->name, overwrite))) {
 						warn("%s: failed to copy file (%d)", p->name, res);
@@ -628,6 +649,8 @@ void print_usage()
 		" -O, --overwrite             Overwrite image file (if it exists already)\n"
 		" --direct                    Write to image file directly (use less memory)\n"
 		" --shrink                    Truncate image file at the end of LFS image\n"
+		" --stdout                    When extracting file(s) extract to stdout\n"
+		" --stdin                     When adding file read file from stdin\n"
 		"\n\n", LFS_DEFAULT_BLOCKSIZE);
 }
 
@@ -827,7 +850,7 @@ int main(int argc, char **argv)
 				image_size, new_size);
 	}
 
-	if (verbose_mode > 1) {
+	if (verbose_mode > 1 && !stdout_mode) {
 		lfs_size_t used_blocks = lfs_fs_size(&lfs);
 
 		printf("Filesystem size: %10u bytes (%u blocks)\n", block_size * lfs.block_count,
@@ -842,7 +865,9 @@ int main(int argc, char **argv)
 
 
 	/* Parse command parameters */
-	bool filecheck = (command == LFS_CREATE || command == LFS_UPDATE) ? true : false;
+	bool filecheck = false;
+	if ((command == LFS_CREATE || command == LFS_UPDATE) && !stdin_mode)
+		filecheck = true;
 	if ((res = parse_params(argc, argv, optind, &params, filecheck))) {
 		warn("failed to parse all parameters: %d", res);
 		ret = 2;
@@ -897,7 +922,7 @@ int main(int argc, char **argv)
 		if (shrink_mode) {
 			if (file_size(fd) > image_offset + image_size) {
 				if (verbose_mode)
-					printf("%s: shrinking image file\n", image_file);
+					warn("%s: shrinking image file\n", image_file);
 				if (ftruncate(fd, image_offset + image_size))
 					fatal("%s: failet to srhink image file (%d)", image_file,
 						errno);
