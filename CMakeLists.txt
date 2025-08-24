@@ -16,7 +16,7 @@ endif()
 
 
 project(littlefs-toy
-	VERSION 1.0.0
+	VERSION 1.0.1
 	DESCRIPTION "littlefs-toy - A tool for creating and modifying LittleFS images."
 	HOMEPAGE_URL https://github.com/tjko/littlefs-toy/
 	LANGUAGES C

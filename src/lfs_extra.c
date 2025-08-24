@@ -52,7 +52,8 @@ int lfs_mkdir_parent(lfs_t *lfs, const char *pathname)
 			res = lfs_mkdir(lfs, path);
 			if (res != LFS_ERR_EXIST && res != LFS_ERR_OK)
 				break;
-			*(saveptr - 1) = '/';
+			if (saveptr)
+				*(saveptr - 1) = '/';
 			tok = strtok_r(NULL, "/", &saveptr);
 		}
 	} else {
