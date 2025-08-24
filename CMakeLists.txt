@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-#set(BUILD_TAG beta)
+set(BUILD_TAG beta)
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build, e.g. Debug, Release")
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE Release)
@@ -16,7 +16,7 @@ endif()
 
 
 project(littlefs-toy
-	VERSION 1.0.1
+	VERSION 1.1.0
 	DESCRIPTION "littlefs-toy - A tool for creating and modifying LittleFS images."
 	HOMEPAGE_URL https://github.com/tjko/littlefs-toy/
 	LANGUAGES C
