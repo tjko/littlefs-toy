@@ -1,4 +1,4 @@
-/* lfs.c
+/* lfst.c
    Copyright (C) 2025 Timo Kokkonen <tjko@iki.fi>
 
    SPDX-License-Identifier: GPL-3.0-or-later
@@ -627,7 +627,7 @@ void print_usage()
 	fprintf(stderr, "%s v%s%s %s\n\n", PROGRAMNAME,
 		LITTLEFS_TOY_VERSION, BUILD_TAG, copyright);
 
-	fprintf(stderr, "Usage: lfs {command} [options] [(file) | (pattern) ...]\n\n"
+	fprintf(stderr, "Usage: " PROGRAMNAME " {command} [options] [(file) | (pattern) ...]\n\n"
 		" Commands:\n"
 		"  -c, --create               Create (format) LFS image and add files\n"
 		"  -r, --append               Append (add) files to existing LFS image\n"

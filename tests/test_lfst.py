@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# test_lfs.py -- Unit tests for lfs
+# test_lfst.py -- Unit tests for lfst
 #
 # Copyright (C) 2025 Timo Kokkonen <tjko@iki.fi>
 #
@@ -33,7 +33,7 @@ import unittest
 class LFSTests(unittest.TestCase):
     """lfs test cases"""
 
-    program = '../build/lfs'
+    program = '../build/lfst'
     tmpdir = None
     workdir = None
     debug = False
@@ -85,7 +85,7 @@ class LFSTests(unittest.TestCase):
         """test version information output"""
         output, _ = self.run_test(['--version'])
         self.assertIn('GNU General Public License', output)
-        self.assertRegex(output, r'lfs v\d+\.\d+\.\d+')
+        self.assertRegex(output, r'lfst v\d+\.\d+\.\d+')
 
     def test_noarguments(self):
         """test running without arguments"""
