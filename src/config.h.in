@@ -10,7 +10,7 @@
 #define HOST_TYPE "@CMAKE_SYSTEM_NAME@-@CMAKE_HOST_SYSTEM_PROCESSOR@"
 #define BUILD_TAG "@BUILD_TAG@"
 
-#define PROGRAMNAME "lfs"
+#define PROGRAMNAME "lfst"
 
 #cmakedefine HAVE_UNISTD_H
 #cmakedefine HAVE_GETOPT_H

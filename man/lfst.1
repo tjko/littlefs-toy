@@ -1,20 +1,20 @@
-.TH LFS 1 "August 2025" "littlefs-toy" "User Commands"
+.TH LFST 1 "August 2025" "littlefs-toy" "User Commands"
 .SH NAME
-lfs \- a tool for working with LittleFS images
+lfst \- a tool for working with LittleFS images
 
 .SH SYNOPSIS
-.B lfs
+.B lfst
 \fICOMMAND\fR -f \fIIMAGEFILE\f  [\fIOPTIONS\fR] [\fIFILE\fR | \fIPATTERN\fR ...]
 
 .SH DESCRIPTION
-.B lfs
+.B lfst
 is a tool for creating and manipulating LittleFS images.
-.B lfs
+.B lfst
 operates similarly to
 .B tar
 command, except that it operates on LittleFS filesystem images instead.
 .PP
-The tool supports creating new LittleFS images, adding files to existing images,
+This tool supports creating new LittleFS images, adding files to existing images,
 listing image contents, and removing files from images.
 .PP
 LittleFS is a little fail-safe filesystem designed for microcontrollers and embedded systems.
@@ -103,73 +103,71 @@ Only one file can be added at a time.
 .PP
 Create a 1MB LittleFS image and add files to it:
 .RS
-.B lfs -c -v -f filesystem.bin -s 1M file1.txt file2.txt
+.B lfst -c -v -f filesystem.bin -s 1M file1.txt file2.txt
 .RE
 .PP
 Create a new image and add all files from another to it:
 .RS
-.B lfs -c -v -f filesystem.bin -s 512K -C /tmp/image .
+.B lfst -c -v -f filesystem.bin -s 512K -C /tmp/image .
 .RE
 .PP
 Create image with custom block size:
 .RS
-.B lfs -c -f filesystem.bin -s 2048K -b 1K config.txt data/
+.B lfst -c -f filesystem.bin -s 2048K -b 1K config.txt data/
 .RE
 .PP
 List all files in an existing image:
 .RS
-.B lfs -t -v -f filesystem.bin
+.B lfst -t -v -f filesystem.bin
 .RE
 .PP
 List specific files in an image:
 .RS
-.B lfs -tvf filesystem.bin config.txt data/
+.B lfst -tvf filesystem.bin config.txt data/
 .RE
 .PP
 Add files to an existing image:
 .RS
-.B lfs -r -v -f filesystem.bin newfile.txt docs/
+.B lfst -r -v -f filesystem.bin newfile.txt docs/
 .RE
 .PP
 Remove files from an image:
 .RS
-.B lfs -d -v -f filesystem.bin oldfile.txt temp/
+.B lfst -d -v -f filesystem.bin oldfile.txt temp/
 .RE
 .PP
 Add files from a different directory:
 .RS
-.B lfs -r -v -f filesystem.bin -C /home/user/data .
+.B lfst -r -v -f filesystem.bin -C /home/user/data .
 .RE
 .PP
 Add files to existing image that is stored inside and firmware image file (at given offset):
 .RS
-.B lfs -r -v -f firmware.bin -o 0x1c0000 newfile.txt
+.B lfst -r -v -f firmware.bin -o 0x1c0000 newfile.txt
 .RE
 
-.SH FILES
-.TP
-.I ~/.lfsrc
-User configuration file for default options (not currently implemented).
-.TP
-.I /etc/lfs.conf
-System-wide configuration file (not currently implemented).
+
 .SH EXIT STATUS
-.B lfs
+.B lfst
 exits with status 0 on success, and >0 if an error occurs.
+
 .SH SEE ALSO
 .BR tar (1),
 .BR picotool (1)
 .PP
 LittleFS specification and documentation:
 .I https://github.com/littlefs-project/littlefs
+
 .SH AUTHOR
 Written by Timo Kokkonen <tjko@iki.fi>.
+
 .SH COPYRIGHT
 Copyright \(co 2025 Timo Kokkonen.
 License GPLv3+: GNU GPL version 3 or later <https://gnu.org/licenses/gpl.html>.
 .br
 This is free software: you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law.
+
 .SH BUGS
 Report bugs to: <https://github.com/tjko/littlefs-toy/issues>
 .br

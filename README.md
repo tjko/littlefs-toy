@@ -1,7 +1,7 @@
 # littlefs-toy
 A free tool for working with [LittleFS](https://github.com/littlefs-project/littlefs) images.
 
-**lfs** is a command-line utility that makes is easy to create and modify existing LittleFS images
+**lfst** is a command-line utility that makes is easy to create and modify existing LittleFS images
 
   - Create and modify LittleFS images with similar command interface as _tar_.
   - Allows adding, updating, and deleting files and directories on a LittleFS filesystem.
@@ -10,11 +10,11 @@ A free tool for working with [LittleFS](https://github.com/littlefs-project/litt
 
 # Usage
 
-**lfs** works in similar fashion as **tar** command on Linux/Unix systems.
+**lfst** works in similar fashion as **tar** command on Linux/Unix systems.
 
 ## Command Summary
 ```
-Usage: lfs {command} [options] [(file) | (pattern) ...]
+Usage: lfst {command} [options] [(file) | (pattern) ...]
 
  Commands:
   -c, --create               Create (format) LFS image and add files
@@ -44,9 +44,9 @@ Usage: lfs {command} [options] [(file) | (pattern) ...]
 
 ### Create new LittleFS Image
 
-Create a new 2Mb LittleFS filesystem image and add files to it (uses default 4Kb block size): 
+Create a new 2Mb LittleFS filesystem image and add files to it (uses default 4Kb block size):
 ```
-$ lfs -c -v -f lfs.img -s 2M config.txt fw.bin
+$ lfst -c -v -f lfs.img -s 2M config.txt fw.bin
 config.txt
 fw.bin
 ```
@@ -55,14 +55,14 @@ fw.bin
 
 View contents of existing LittleFS image:
 ```
-$ lfs -t -f lfs.img
+$ lfst -t -f lfs.img
 ./config.txt
 ./fw.bin
 ```
 
 To also view file sizes (-v) option can be used:
 ```
-$ lfs -t -v -f lfs.img
+$ lfst -t -v -f lfs.img
 -rw-rw-rw- root/root      1876 0000-00-00 00:00 ./config.txt
 -rw-rw-rw- root/root    262144 0000-00-00 00:00 ./fw.bin
 ```
@@ -72,13 +72,13 @@ $ lfs -t -v -f lfs.img
 
 To extract individual files we can list their names:
 ```
-$ lfs -x -v -f lfs.img config.txt
+$ lfst -x -v -f lfs.img config.txt
 ./config.txt
 ```
 
 To extract all files into /tmp directory:
 ```
-$ lfs -x -v -f lfs.img -C /tmp .
+$ lfst -x -v -f lfs.img -C /tmp .
 ./config.txt
 ./fw.bin
 ```
@@ -91,7 +91,7 @@ hexadecimal format.
 
 Extract files from a 256K LittleFS at the end of 2Mb firmware dump into /tmp directory:
 ```
-$ lfs -x -v -f flash.dump -o 0x1c0000 -C /tmp
+$ lfst -x -v -f flash.dump -o 0x1c0000 -C /tmp
 ./cert.pem
 ./fanpico.cfg
 ./key.pem
@@ -101,13 +101,13 @@ $ lfs -x -v -f flash.dump -o 0x1c0000 -C /tmp
 
 Add/replace file in the LittleFS embedded in the flash dump:
 ```
-$ lfs -r -v -f flash.dump -o 0x1c0000  fanpico.cfg
+$ lfst -r -v -f flash.dump -o 0x1c0000  fanpico.cfg
 ./fanpico.cfg
 ```
 
 # Compiling
 
-Currently **lfs** is being developed for Linux and MacOS, but it shouldn't be too hard to port for other operating systems.
+Currently **littlefs-toy** is being developed for Linux and MacOS, but it shouldn't be too hard to port for other operating systems.
 
 Basic development tools including CMake and C compiler is required.
 
@@ -132,12 +132,9 @@ $ make
 
 ## Installation
 
-After _lfs_ has been successfully compiled, it can be installed:
+After _littlefs-toy_ has been successfully compiled, it can be installed:
 ```
 $ sudo make install
 ```
-
-
- 
 
 

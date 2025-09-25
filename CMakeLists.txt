@@ -53,39 +53,39 @@ set_source_files_properties(
 )
 
 
-add_executable(lfs
-  src/lfs.c
+add_executable(lfst
+  src/lfst.c
   src/lfs_driver.c
   src/lfs_extra.c
   src/util.c
 )
-target_include_directories(lfs PRIVATE src)
+target_include_directories(lfst PRIVATE src)
 configure_file(src/config.h.in config.h)
 
 if (HAVE_GETOPT_LONG)
   message("Using getopt_long from the system.")
 else()
   message("Using included getopt_long.")
-  target_sources(lfs PRIVATE
+  target_sources(lfst PRIVATE
     src/getopt/getopt.c
     src/getopt/getopt1.c
   )
 endif()
 
 
-target_link_libraries(lfs PRIVATE
+target_link_libraries(lfst PRIVATE
   littlefs
 )
 
 
-target_compile_options(lfs PRIVATE
+target_compile_options(lfst PRIVATE
   -Wall
   -Wextra
   -fstack-protector-all
   -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=
 )
 
-target_compile_definitions(lfs PRIVATE
+target_compile_definitions(lfst PRIVATE
   HAVE_CONFIG_H
   LFS_DEFINES=lfs_opts.h
   LFS_THREADSAFE
@@ -95,19 +95,19 @@ target_compile_definitions(lfs PRIVATE
 )
 
 
-install(TARGETS lfs)
-install(FILES man/lfs.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
+install(TARGETS lfst)
+install(FILES man/lfst.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 install(FILES README.md LICENSE TYPE DOC)
 
 
 if (Python3_FOUND)
   enable_testing()
   add_test(NAME lfs_tests
-	 COMMAND ${Python3_EXECUTABLE} test_lfs.py
+	 COMMAND ${Python3_EXECUTABLE} test_lfst.py
 	 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests
 	 )
 
-  set_property(TEST lfs_tests PROPERTY ENVIRONMENT "LFS=$<TARGET_FILE:lfs>" "DEBUG=1")
+  set_property(TEST lfs_tests PROPERTY ENVIRONMENT "LFS=$<TARGET_FILE:lfst>" "DEBUG=1")
 endif()
 
 
