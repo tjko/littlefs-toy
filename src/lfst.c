@@ -588,7 +588,7 @@ int littlefs_mount(struct lfs_context *ctx, lfs_t *lfs)
 		}
 	}
 
-	if (new_block_size >= 128 && new_block_size <= 65536) {
+	if (new_block_size >= 128) {
 		warn("warning: filesystem blocksize is %u (and not %u)",
 			new_block_size, block_size);
 		block_size = new_block_size;
