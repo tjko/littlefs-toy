@@ -117,7 +117,7 @@ First fetch sources and required libraries:
 ```
 $ git clone https://github.com/tjko/littlefs-toy.git
 $ cd littlefs-toy
-$ git submodule update --init --recurisve
+$ git submodule update --init --recursive
 ```
 
 ## Compile Binaries
