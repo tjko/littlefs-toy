@@ -1,5 +1,5 @@
 /* lfs_driver.c
-   Copyright (C) 2025 Timo Kokkonen <tjko@iki.fi>
+   Copyright (C) 2025-2026 Timo Kokkonen <tjko@iki.fi>
 
    SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -19,14 +19,21 @@
    along with LittleFS-Toy. If not, see <https://www.gnu.org/licenses/>.
 */
 
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+#ifdef __MINGW32__
+#include "win32_compat.h"
 #endif
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/stat.h>
+#include <errno.h>
+#ifdef HAVE_SYS_ERRNO_H
 #include <sys/errno.h>
+#endif
+#include <sys/stat.h>
 #include <pthread.h>
 #include <lfs.h>
 #include <lfs_util.h>

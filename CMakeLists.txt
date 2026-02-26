@@ -30,6 +30,7 @@ include(CheckFunctionExists)
 
 check_include_file(unistd.h HAVE_UNISTD_H)
 check_include_file(getopt.h HAVE_GETOPT_H)
+check_include_file(sys/errno.h HAVE_SYS_ERRNO_H)
 
 check_function_exists(getopt_long HAVE_GETOPT_LONG)
 
@@ -75,15 +76,20 @@ endif()
 
 target_link_libraries(lfst PRIVATE
   littlefs
+  pthread
 )
 
 
 target_compile_options(lfst PRIVATE
   -Wall
   -Wextra
-  -fstack-protector-all
   -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=
 )
+if (NOT MINGW)
+  target_compile_options(lfst PRIVATE
+    -fstack-protector-all
+  )
+endif()
 
 target_compile_definitions(lfst PRIVATE
   HAVE_CONFIG_H
@@ -115,3 +121,7 @@ message("==========================================================")
 message("        BUILD_TAG: ${BUILD_TAG}")
 message(" CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 message("==========================================================")
+
+if (MINGW)
+   message("Building with mingw-w64")
+endif()

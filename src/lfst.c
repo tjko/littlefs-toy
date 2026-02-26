@@ -1,5 +1,5 @@
 /* lfst.c
-   Copyright (C) 2025 Timo Kokkonen <tjko@iki.fi>
+   Copyright (C) 2025-2026 Timo Kokkonen <tjko@iki.fi>
 
    SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -22,10 +22,17 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+#ifdef __MINGW32__
+#include "win32_compat.h"
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
+#include <errno.h>
+#ifdef HAVE_SYS_ERRNO_H
 #include <sys/errno.h>
+#endif
 #include <sys/types.h>
 #include <dirent.h>
 #if defined(HAVE_GETOPT_H) && defined(HAVE_GETOPT_LONG)
@@ -78,7 +85,7 @@ static const struct option long_options[] = {
         { NULL, 0, NULL, 0 }
 };
 
-static const char *copyright = "Copyright (C) 2025 Timo Kokkonen";
+static const char *copyright = "Copyright (C) 2025-2026 Timo Kokkonen";
 
 
 
@@ -793,7 +800,7 @@ int main(int argc, char **argv)
 			off_t sz = file_size(fd);
 			if (sz < 0)
 				fatal("cannot determine file size: %s", image_file);
-			if (direct_mode && sz < image_offset + image_size) {
+			if (direct_mode && sz < (off_t)image_offset + (off_t)image_size) {
 				if ((res = file_set_zero(fd, image_offset, image_size)))
 					fatal("failed to zero-out lfs image");
 			}
@@ -920,7 +927,7 @@ int main(int argc, char **argv)
 				fatal("%s: failed to write image to file (%d)", image_file, errno);
 		}
 		if (shrink_mode) {
-			if (file_size(fd) > image_offset + image_size) {
+			if (file_size(fd) > (off_t)image_offset + (off_t)image_size) {
 				if (verbose_mode)
 					warn("%s: shrinking image file\n", image_file);
 				if (ftruncate(fd, image_offset + image_size))

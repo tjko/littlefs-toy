@@ -1,5 +1,5 @@
 /* lfs_driver.h
-   Copyright (C) 2025 Timo Kokkonen <tjko@iki.fi>
+   Copyright (C) 2025-2026 Timo Kokkonen <tjko@iki.fi>
 
    SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -22,6 +22,9 @@
 #ifndef _LFS_DRIVER_H_
 #define _LFS_DRIVER_H_
 
+#ifdef LFS_THREADSAFE
+#include <pthread.h>
+#endif
 #include <lfs.h>
 
 #ifdef __cplusplus
