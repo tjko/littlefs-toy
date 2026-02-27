@@ -1,6 +1,6 @@
 /* util.c
  *
- * Copyright (C) 2025 Timo Kokkonen
+ * Copyright (C) 2025-2026 Timo Kokkonen
  * All Rights Reserved.
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -23,6 +23,9 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+#ifdef __MINGW32__
+#include "win32_compat.h"
 #endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -230,6 +233,8 @@ int mkdir_parent(const char *pathname, mode_t mode)
 {
 	int res = 0;
 	char *dir, *tok, *saveptr;
+
+	(void)mode; /* to avoid warnings about unused variable */
 
 	if (!pathname || *pathname == 0)
 		return -1;

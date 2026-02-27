@@ -30,6 +30,7 @@ include(CheckFunctionExists)
 
 check_include_file(unistd.h HAVE_UNISTD_H)
 check_include_file(getopt.h HAVE_GETOPT_H)
+check_include_file(sys/errno.h HAVE_SYS_ERRNO_H)
 
 check_function_exists(getopt_long HAVE_GETOPT_LONG)
 
@@ -73,17 +74,25 @@ else()
 endif()
 
 
-target_link_libraries(lfst PRIVATE
-  littlefs
-)
+if (MINGW)
+   message("Building with mingw-w64")
+   target_link_libraries(lfst -static gcc winpthread littlefs -dynamic)
+else()
+   target_link_libraries(lfst PRIVATE littlefs)
+endif()
+
 
 
 target_compile_options(lfst PRIVATE
   -Wall
   -Wextra
-  -fstack-protector-all
   -fmacro-prefix-map=${CMAKE_SOURCE_DIR}/=
 )
+if (NOT MINGW)
+  target_compile_options(lfst PRIVATE
+    -fstack-protector-all
+  )
+endif()
 
 target_compile_definitions(lfst PRIVATE
   HAVE_CONFIG_H
@@ -112,6 +121,11 @@ endif()
 
 
 message("==========================================================")
-message("        BUILD_TAG: ${BUILD_TAG}")
-message(" CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("              BUILD_TAG: ${BUILD_TAG}")
+message("       CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("      CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+message("   CMAKE_SYSTEM_VERSION: ${CMAKE_SYSTEM_VERSION}")
+message(" CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+message("   CMAKE_CROSSCOMPILING: ${CMAKE_CROSSCOMPILING}")
 message("==========================================================")
+
