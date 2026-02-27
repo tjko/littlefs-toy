@@ -229,10 +229,12 @@ int file_exists(const char *pathname)
 }
 
 
-int mkdir_parent(const char *pathname, mode_t mode __attribute__((unused)))
+int mkdir_parent(const char *pathname, mode_t mode)
 {
 	int res = 0;
 	char *dir, *tok, *saveptr;
+
+	(void)mode; /* to avoid warnings about unused variable */
 
 	if (!pathname || *pathname == 0)
 		return -1;

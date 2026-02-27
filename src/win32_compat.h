@@ -15,8 +15,7 @@ extern "C" {
 
 #include <io.h>
 
-#define snprintf _snprintf
-#define lstat stat
+#define lstat(pathname,statbuf) stat(pathname,statbuf)
 #define fsync(fd) _commit(fd)
 #define mkdir(dir,mode) mkdir(dir)
 

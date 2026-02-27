@@ -74,10 +74,13 @@ else()
 endif()
 
 
-target_link_libraries(lfst PRIVATE
-  littlefs
-  pthread
-)
+if (MINGW)
+   message("Building with mingw-w64")
+   target_link_libraries(lfst -static gcc winpthread littlefs -dynamic)
+else()
+   target_link_libraries(lfst PRIVATE littlefs)
+endif()
+
 
 
 target_compile_options(lfst PRIVATE
@@ -118,10 +121,11 @@ endif()
 
 
 message("==========================================================")
-message("        BUILD_TAG: ${BUILD_TAG}")
-message(" CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("              BUILD_TAG: ${BUILD_TAG}")
+message("       CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("      CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+message("   CMAKE_SYSTEM_VERSION: ${CMAKE_SYSTEM_VERSION}")
+message(" CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+message("   CMAKE_CROSSCOMPILING: ${CMAKE_CROSSCOMPILING}")
 message("==========================================================")
 
-if (MINGW)
-   message("Building with mingw-w64")
-endif()

@@ -107,7 +107,8 @@ $ lfst -r -v -f flash.dump -o 0x1c0000  fanpico.cfg
 
 # Compiling
 
-Currently **littlefs-toy** is being developed for Linux and MacOS, but it shouldn't be too hard to port for other operating systems.
+Currently **littlefs-toy** is being developed mainly for Linux and MacOS, but it can be compiled for Windows
+with the help of mingw-w64 (Windows support should be considered experimental).
 
 Basic development tools including CMake and C compiler is required.
 
@@ -137,4 +138,20 @@ After _littlefs-toy_ has been successfully compiled, it can be installed:
 $ sudo make install
 ```
 
+## Cross-Compiling (mingw-w64)
+
+This is example how to compile Windows executable on a Debian based system.
+
+### Install mingw-w64
+
+```
+$ sudo apt-get install g++-mingw-w64-x86-64 gcc-mingw-w64-x86-64
+```
+
+### Compile Binaries
+
+```
+$ cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw64.cmake
+$ cmake --build build
+```
 
