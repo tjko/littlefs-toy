@@ -125,22 +125,20 @@ $ git submodule update --init --recursive
 
 Next compile using _cmake_:
 ```
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make
+$ cmake -B build
+$ cmake --build build
 ```
 
 ## Installation
 
 After _littlefs-toy_ has been successfully compiled, it can be installed:
 ```
-$ sudo make install
+$ sudo cmake --install build
 ```
 
 ## Cross-Compiling (mingw-w64)
 
-This is example how to compile Windows executable on a Debian based system.
+This is an example how to compile Windows executable on a Debian based system.
 
 ### Install mingw-w64
 
@@ -155,3 +153,4 @@ $ cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw64.cmake
 $ cmake --build build
 ```
 
+(lfst.exe should now be in build/ subdirectory)
