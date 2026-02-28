@@ -626,6 +626,11 @@ void print_version()
 	printf("This program comes with ABSOLUTELY NO WARRANTY. This is free software,\n"
 		"and you are welcome to redistribute it under certain conditions.\n"
 		"See the GNU General Public License for more details.\n\n");
+
+	printf("\nlittlefs version: %d.%d\n", LFS_VERSION_MAJOR, LFS_VERSION_MINOR);
+#ifdef LFS_COPYRIGHT
+	printf("%s\n", LFS_COPYRIGHT);
+#endif
 }
 
 
