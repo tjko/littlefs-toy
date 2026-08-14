@@ -47,9 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lfst-${{ matrix.target }}
-          path: |
-            build-${{ matrix.target }}/${{ matrix.binary }}
-            build-${{ matrix.target }}/**/${{ matrix.binary }}
+          path: build-${{ matrix.target }}/**/${{ matrix.binary }}
 
   build-macos:
     runs-on: macos-latest
@@ -69,9 +67,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lfst-macos
-          path: |
-            build-macos/lfst
-            build-macos/**/lfst
+          path: build-macos/**/lfst
 
   bundle-artifacts:
     runs-on: ubuntu-latest
