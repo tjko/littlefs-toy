@@ -80,8 +80,19 @@ jobs:
 
       - name: Create combined zip
         run: |
-          cd artifacts
-          zip -r ../lfst-all-targets.zip .
+          python3 - <<'PY'
+          import os
+          import zipfile
+
+          archive = "lfst-all-targets.zip"
+          source_dir = "artifacts"
+
+          with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+              for root, _, files in os.walk(source_dir):
+                  for name in files:
+                      path = os.path.join(root, name)
+                      zf.write(path, os.path.relpath(path, source_dir))
+          PY
 
       - name: Upload combined artifact
         uses: actions/upload-artifact@v4
