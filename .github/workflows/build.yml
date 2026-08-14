@@ -32,9 +32,9 @@ jobs:
       - name: Configure
         run: |
           if [ "${{ matrix.target }}" = "windows" ]; then
-            cmake -S . -B build-${{ matrix.target }} -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw64.cmake
+            cmake -S . -B build-${{ matrix.target }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw64.cmake
           else
-            cmake -S . -B build-${{ matrix.target }}
+            cmake -S . -B build-${{ matrix.target }} -DCMAKE_BUILD_TYPE=Release
           fi
 
       - name: Build
@@ -55,7 +55,7 @@ jobs:
           submodules: recursive
 
       - name: Configure
-        run: cmake -S . -B build-macos
+        run: cmake -S . -B build-macos -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build-macos
