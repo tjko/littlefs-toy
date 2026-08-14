@@ -1,0 +1,62 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linux, windows]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install mingw-w64
+        if: matrix.target == 'windows'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+
+      - name: Configure
+        run: |
+          if [ "${{ matrix.target }}" = "windows" ]; then
+            cmake -S . -B build-${{ matrix.target }} -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw64.cmake
+          else
+            cmake -S . -B build-${{ matrix.target }}
+          fi
+
+      - name: Build
+        run: cmake --build build-${{ matrix.target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lfst-${{ matrix.target }}
+          path: build-${{ matrix.target }}/lfst${{ matrix.target == 'windows' && '.exe' || '' }}
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: cmake -S . -B build-macos
+
+      - name: Build
+        run: cmake --build build-macos
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lfst-macos
+          path: build-macos/lfst
