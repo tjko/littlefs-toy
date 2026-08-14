@@ -27,7 +27,7 @@ jobs:
         if: matrix.target == 'windows'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+          sudo apt-get install -y mingw-w64 gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
 
       - name: Configure
         run: |
