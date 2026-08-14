@@ -92,9 +92,12 @@ jobs:
                   for name in files:
                       path = os.path.join(root, name)
                       arcname = os.path.relpath(path, source_dir)
+                      mode = os.stat(path).st_mode & 0xFFFF
+                      if os.path.basename(path) == "lfst":
+                          mode |= 0o111
                       info = zipfile.ZipInfo(arcname)
                       info.compress_type = zipfile.ZIP_DEFLATED
-                      info.external_attr = (os.stat(path).st_mode & 0xFFFF) << 16
+                      info.external_attr = mode << 16
                       with open(path, "rb") as f:
                           zf.writestr(info, f.read())
           PY
