@@ -38,7 +38,7 @@ jobs:
           fi
 
       - name: Build
-        run: cmake --build build-${{ matrix.target }}
+        run: cmake --build build-${{ matrix.target }} --config Release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -58,7 +58,7 @@ jobs:
         run: cmake -S . -B build-macos -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build-macos
+        run: cmake --build build-macos --config Release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
