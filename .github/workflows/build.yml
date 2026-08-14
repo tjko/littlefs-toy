@@ -92,7 +92,11 @@ jobs:
                   for name in files:
                       path = os.path.join(root, name)
                       arcname = os.path.relpath(path, source_dir)
-                      zf.write(path, arcname=arcname)
+                      info = zipfile.ZipInfo(arcname)
+                      info.compress_type = zipfile.ZIP_DEFLATED
+                      info.external_attr = (os.stat(path).st_mode & 0xFFFF) << 16
+                      with open(path, "rb") as f:
+                          zf.writestr(info, f.read())
           PY
 
       - name: Upload combined artifact
