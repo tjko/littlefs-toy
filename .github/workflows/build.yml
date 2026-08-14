@@ -12,7 +12,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [linux, windows]
+        include:
+          - target: linux
+            binary: lfst
+          - target: windows
+            binary: lfst.exe
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lfst-${{ matrix.target }}
-          path: build-${{ matrix.target }}/lfst${{ matrix.target == 'windows' && '.exe' || '' }}
+          path: build-${{ matrix.target }}/${{ matrix.binary }}
 
   build-macos:
     runs-on: macos-latest
