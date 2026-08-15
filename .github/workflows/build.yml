@@ -1,0 +1,109 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux
+            binary: lfst
+          - target: windows
+            binary: lfst.exe
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install mingw-w64
+        if: matrix.target == 'windows'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
+
+      - name: Configure
+        run: |
+          if [ "${{ matrix.target }}" = "windows" ]; then
+            cmake -S . -B build-${{ matrix.target }} -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-mingw64.cmake
+          else
+            cmake -S . -B build-${{ matrix.target }} -DCMAKE_BUILD_TYPE=Release
+          fi
+
+      - name: Build
+        run: cmake --build build-${{ matrix.target }} --config Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: lfst-${{ matrix.target }}
+          path: build-${{ matrix.target }}/**/${{ matrix.binary }}
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: cmake -S . -B build-macos -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-macos --config Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: lfst-macos
+          path: build-macos/**/lfst
+
+  bundle-artifacts:
+    runs-on: ubuntu-latest
+    needs: [build-ubuntu, build-macos]
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Create combined zip
+        run: |
+          python3 - <<'PY'
+          import os
+          import zipfile
+
+          archive = "lfst-all-targets.zip"
+          source_dir = "artifacts"
+
+          with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
+              for root, _, files in os.walk(source_dir):
+                  for name in files:
+                      path = os.path.join(root, name)
+                      arcname = os.path.relpath(path, source_dir)
+                      mode = os.stat(path).st_mode & 0xFFFF
+                      if not os.path.basename(path).endswith(".exe"):
+                          mode |= 0o111
+                      info = zipfile.ZipInfo(arcname)
+                      info.compress_type = zipfile.ZIP_DEFLATED
+                      info.external_attr = mode << 16
+                      with open(path, "rb") as f:
+                          zf.writestr(info, f.read())
+          PY
+
+      - name: Upload combined artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: lfst-all-targets
+          path: lfst-all-targets.zip
